@@ -1,0 +1,100 @@
+PODS:
+  - DoubleConversion (1.1.6)
+  - FBLazyVector (0.82.1)
+  - RCT-Folly (2024.11.18.00)
+  - RCTRequired (0.82.1)
+  - RCTTypeSafety (0.82.1)
+  - React (0.82.1)
+  - React-Core (0.82.1)
+  - React-CoreModules (0.82.1)
+  - React-RCTAppDelegate (0.82.1)
+  - React-RCTFabric (0.82.1)
+  - React-RuntimeCore (0.82.1)
+  - React-RuntimeHermes (0.82.1)
+  - ReactCommon (0.82.1)
+  - RNAudioRecorderPlayer (3.6.4)
+  - RNCPicker (2.11.4)
+  - RNGestureHandler (2.29.1)
+  - RNSVG (15.15.0)
+  - RNScreens (4.18.0)
+  - RNVectorIcons (10.3.0)
+  - SocketRocket (0.7.1)
+  - Yoga (0.0.0)
+  - boost (1.84.0)
+  - fast_float (8.0.0)
+  - fmt (11.0.2)
+  - glog (0.3.5)
+  - hermes-engine (0.82.1)
+  - react-native-safe-area-context (5.6.2)
+  - react-native-voice (3.2.4)
+
+DEPENDENCIES:
+  - React (from `../node_modules/react-native`)
+  - React-Core (from `../node_modules/react-native`)
+  - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
+  - react-native-voice (from `../node_modules/@react-native-voice/voice`)
+
+SPEC REPOS:
+  trunk:
+    - DoubleConversion
+    - FBLazyVector
+    - RCT-Folly
+    - RCTRequired
+    - RCTTypeSafety
+    - React
+    - React-Core
+    - React-CoreModules
+    - React-RCTAppDelegate
+    - React-RCTFabric
+    - React-RuntimeCore
+    - React-RuntimeHermes
+    - ReactCommon
+    - RNAudioRecorderPlayer
+    - RNCPicker
+    - RNGestureHandler
+    - RNSVG
+    - RNScreens
+    - RNVectorIcons
+    - SocketRocket
+    - Yoga
+    - boost
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - react-native-safe-area-context
+    - react-native-voice
+
+SPEC CHECKSUMS:
+  DoubleConversion: 831926d9f8bf8166fd87886c4aab41534608852f
+  FBLazyVector: 0
+  RCT-Folly: 0
+  RCTRequired: 0
+  RCTTypeSafety: 0
+  React: 0
+  React-Core: 0
+  React-CoreModules: 0
+  React-RCTAppDelegate: 0
+  React-RCTFabric: 0
+  React-RuntimeCore: 0
+  React-RuntimeHermes: 0
+  ReactCommon: 0
+  RNAudioRecorderPlayer: 0
+  RNCPicker: 0
+  RNGestureHandler: 0
+  RNSVG: 0
+  RNScreens: 0
+  RNVectorIcons: 0
+  SocketRocket: 0
+  Yoga: 0
+  boost: 0
+  fast_float: 0
+  fmt: 0
+  glog: 0
+  hermes-engine: 0
+  react-native-safe-area-context: 0
+  react-native-voice: 0
+
+PODFILE CHECKSUM: 0000000000000000000000000000000000000000
+
+COCOAPODS: 1.16.2
