@@ -13,7 +13,7 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 import Voice from '@react-native-voice/voice';
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import AudioRecorderPlayer from 'react-native-nitro-sound';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../styles/theme';
 import { useTasks } from '../../context/TasksContext';
