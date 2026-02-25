@@ -88,3 +88,9 @@ yarn-error.log
 *.vsix
 
 .claude
+
+# Ruby Bundler
+.bundle/
+
+# CocoaPods generated build support files
+ios/Target\ Support\ Files/
