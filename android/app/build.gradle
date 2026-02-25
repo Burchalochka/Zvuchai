@@ -85,6 +85,13 @@ android {
         versionCode 1
         versionName "1.0"
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -105,6 +112,24 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    packaging {
+        resources {
+            excludes += [
+                'META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version',
+                'META-INF/androidx.appcompat_appcompat.version',
+                'META-INF/*.version'
+            ]
+        }
+    }
+}
+
+configurations.all {
+    exclude group: 'com.android.support', module: 'support-compat'
+    exclude group: 'com.android.support', module: 'support-annotations'
+    exclude group: 'com.android.support', module: 'support-v4'
+    exclude group: 'com.android.support', module: 'versionedparcelable'
+    exclude group: 'com.android.support', module: 'animated-vector-drawable'
+    exclude group: 'com.android.support', module: 'support-vector-drawable'
 }
 
 dependencies {
@@ -117,3 +142,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"

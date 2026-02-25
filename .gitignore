@@ -73,3 +73,24 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Visual Studio Code
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+!*.code-workspace
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+.claude
+
+# Ruby Bundler
+.bundle/
+
+# CocoaPods generated build support files
+ios/Target\ Support\ Files/
