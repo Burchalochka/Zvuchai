@@ -10,6 +10,7 @@ import CreateAccountScreen from './src/screens/CreateAccountScreen';
 import { TasksProvider } from './src/context/TasksContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ModalProvider, useModal } from './src/context/ModalContext';
+import { SelectedDateProvider } from './src/context/SelectedDateContext';
 import AddItemModal from './src/components/common/AddItemModal';
 import { useTasks } from './src/context/TasksContext';
 import { COLORS } from './src/styles/theme';
@@ -109,9 +110,11 @@ const App = () => {
       >
         <LanguageProvider>
           <TasksProvider>
-            <ModalProvider>
-              <AppContent />
-            </ModalProvider>
+            <SelectedDateProvider>
+              <ModalProvider>
+                <AppContent />
+              </ModalProvider>
+            </SelectedDateProvider>
           </TasksProvider>
         </LanguageProvider>
       </NavigationContainer>

@@ -1,17 +1,17 @@
 export const COLORS = {
-  primary: '#B8EFE6', // М'ятний (з вашого макету)
-  primaryDark: '#1B4332', // Темно-зелений для выделения даты
-  primaryStrong: '#63BDAF', // Насичений бірюзовий для активного сегмента
-  secondary: '#8B5CF6', // Фіолетовий для акцентів
-  background: '#E5E7EB',
-  text: '#1B4332',
-  textSecondary: '#6B7280',
+  primary: '#E8E0D5',       // світло-бежевий
+  primaryDark: '#514134',   // коричневий для виділення
+  primaryStrong: '#C4B5A0', // насичений бежевий для активного сегмента
+  secondary: '#8B7355',     // коричневий акцент
+  background: '#FAF9F9',    // кремовий фон
+  text: '#321E00',          // темно-коричневий текст
+  textSecondary: '#6B5B4F', // сіро-коричневий
   gray: '#8a8b8dff',
-  grayLight: '#F3F4F6',
-  success: '#98CFC7',
+  grayLight: '#F5EDE4',
+  success: '#9A8B6E',
   error: '#EF4444',
   warning: '#F59E0B',
-  border: '#D1D5DB',
+  border: '#D4C4B0',
 };
 
 export const FONTS = {

@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#514134',
   },
 });
 

@@ -38,8 +38,8 @@ const SplashScreen = ({ onFinish }) => {
         <Svg width="100%" height="100%">
           <Defs>
             <SvgLinearGradient id="splashGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#98CFC7" stopOpacity="1" />
-              <Stop offset="1" stopColor="#B8EFE6" stopOpacity="1" />
+              <Stop offset="0" stopColor="#D4C4B0" stopOpacity="1" />
+              <Stop offset="1" stopColor="#E8E0D5" stopOpacity="1" />
             </SvgLinearGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashGrad)" />
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#1B4332',
+    color: '#514134',
     fontFamily: 'Montserrat-Bold',
     letterSpacing: 4,
   },

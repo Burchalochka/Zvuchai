@@ -60,7 +60,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [activeInput, setActiveInput] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiInputType, setEmojiInputType] = useState(null);
-  const [selectedColor, setSelectedColor] = useState('#B8EFE6');
+  const [selectedColor, setSelectedColor] = useState('#E8E0D5');
   const [titleAudio, setTitleAudio] = useState(null);
   const [descriptionAudio, setDescriptionAudio] = useState(null);
   const [isPlayingTitle, setIsPlayingTitle] = useState(false);
@@ -71,7 +71,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const playbackListenerRef = useRef(null);
   
   const themeColors = [
-    '#B8EFE6',
+    '#E8E0D5',
     '#FFE5B4',
     '#E0D5FF',
     '#FFB3BA',
@@ -80,7 +80,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     '#FFFFBA',
     '#D4A5F5',
   ];
-  const audioRecorderPlayer = useRef(new AudioRecorderPlayer()).current;
+  const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
 
   const requestAudioPermission = useCallback(async () => {
     if (Platform.OS !== 'android') {
@@ -471,7 +471,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setDeadline('');
     setIsRecording(false);
     setActiveInput(null);
-    setSelectedColor('#B8EFE6');
+    setSelectedColor('#E8E0D5');
     setTitleAudio(null);
     setDescriptionAudio(null);
     setIsPlayingTitle(false);
@@ -497,7 +497,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setDeadline('');
     setIsRecording(false);
     setActiveInput(null);
-    setSelectedColor('#B8EFE6');
+    setSelectedColor('#E8E0D5');
     setTitleAudio(null);
     setDescriptionAudio(null);
     setIsPlayingTitle(false);
@@ -1348,7 +1348,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(99, 189, 175, 0.15)',
   },
   taskIconWrapper: {
-    backgroundColor: '#B8EFE6', // Мятный для заданий
+    backgroundColor: '#E8E0D5',
   },
   habitIconWrapper: {
     backgroundColor: '#FFE5B4', // Персиковый для звичок

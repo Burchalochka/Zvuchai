@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xxl + 8,
     fontWeight: 'bold',
-    color: '#1B4332',
+    color: '#321E00',
     fontFamily: 'Montserrat-Bold',
     textAlign: 'center',
     marginBottom: SPACING.lg,
@@ -292,13 +292,15 @@ const styles = StyleSheet.create({
   },
   createAccountButton: {
     width: '100%',
-    backgroundColor: '#98CFC7',
+    backgroundColor: '#F8F5E9',
+    borderWidth: 1,
+    borderColor: '#514134',
     borderRadius: 12,
     paddingVertical: SPACING.md + 4,
     paddingHorizontal: SPACING.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#63BDAF',
+    shadowColor: '#C4B5A0',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -312,7 +314,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#321E00',
     fontFamily: 'Montserrat-SemiBold',
     position: 'relative',
     zIndex: 10,
@@ -326,8 +328,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#98CFC7',
-    shadowColor: '#63BDAF',
+    borderColor: '#D4C4B0',
+    shadowColor: '#C4B5A0',
     shadowOffset: {
       width: 0,
       height: 3,
@@ -343,13 +345,13 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#63BDAF',
+    backgroundColor: '#C4B5A0',
     pointerEvents: 'none',
   },
   signInButtonText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#321E00',
     fontFamily: 'Montserrat-SemiBold',
     position: 'relative',
     zIndex: 10,
@@ -367,7 +369,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   dotActive: {
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.primaryDark,
     width: 24,
   },
   dotInactive: {
