@@ -70,7 +70,7 @@ const TaskTimelineItem = ({ task, onToggleComplete }) => {
               activeOpacity={0.7}
             >
               {task.completed ? (
-                <Icon name="checkmark-circle" size={24} color="#000000" />
+                <Icon name="checkmark-circle" size={24} color={COLORS.primaryDark} />
               ) : (
                 <Icon name="ellipse-outline" size={24} color={COLORS.textSecondary} />
               )}
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
   taskCard: {
-    backgroundColor: COLORS.grayLight,
+    backgroundColor: '#FAF9F9',
     borderRadius: 20,
     padding: SPACING.md,
     marginLeft: SPACING.md,

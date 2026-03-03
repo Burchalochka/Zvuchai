@@ -1,42 +1,72 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../components/common/Header';
 import Calendar from '../components/calendar/Calendar';
 import TaskTimelineItem from '../components/tasks/TaskTimelineItem';
 import { useTasks } from '../context/TasksContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useSelectedDate } from '../context/SelectedDateContext';
+import { useModal } from '../context/ModalContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
+
+const TAB_BAR_HEIGHT = 74;
+
+const toDateKey = (d) => {
+  if (!d) return '';
+  const x = new Date(d);
+  return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+};
 
 const HomeScreen = () => {
   const { tasks, habits, goals, addTask, addHabit, addGoal, toggleTaskComplete, toggleHabitComplete } = useTasks();
   const { language } = useLanguage();
+  const { selectedDate } = useSelectedDate();
+  const { openAddModal } = useModal();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('tasks');
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const [totalContentHeight, setTotalContentHeight] = useState(0);
   const isScrollEnabled = totalContentHeight > scrollViewportHeight + 1;
+  const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + SPACING.lg;
 
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const [aHours, aMinutes] = a.startTime.split(':').map(Number);
-    const [bHours, bMinutes] = b.startTime.split(':').map(Number);
-    return aHours * 60 + aMinutes - (bHours * 60 + bMinutes);
+  const selectedKey = toDateKey(selectedDate);
+  const tasksForDay = (tasks || []).filter((t) => t && toDateKey(t.createdAt) === selectedKey);
+  const habitsForDay = (habits || []).filter((h) => h && toDateKey(h.createdAt) === selectedKey);
+
+  const sortedTasks = [...tasksForDay].sort((a, b) => {
+    const aStr = (a && a.startTime) ? String(a.startTime) : '09:00';
+    const bStr = (b && b.startTime) ? String(b.startTime) : '09:00';
+    const [aHours, aMinutes] = aStr.split(':').map(Number);
+    const [bHours, bMinutes] = bStr.split(':').map(Number);
+    return (aHours || 0) * 60 + (aMinutes || 0) - (bHours || 0) * 60 - (bMinutes || 0);
   });
 
-  const sortedHabits = [...habits].sort((a, b) => {
-    const [aHours, aMinutes] = a.startTime.split(':').map(Number);
-    const [bHours, bMinutes] = b.startTime.split(':').map(Number);
-    return aHours * 60 + aMinutes - (bHours * 60 + bMinutes);
+  const sortedHabits = [...habitsForDay].sort((a, b) => {
+    const aStr = (a && a.startTime) ? String(a.startTime) : '09:00';
+    const bStr = (b && b.startTime) ? String(b.startTime) : '09:00';
+    const [aHours, aMinutes] = aStr.split(':').map(Number);
+    const [bHours, bMinutes] = bStr.split(':').map(Number);
+    return (aHours || 0) * 60 + (aMinutes || 0) - (bHours || 0) * 60 - (bMinutes || 0);
   });
 
   const currentItems = activeTab === 'tasks' ? sortedTasks : sortedHabits;
   const hasItems = currentItems.length > 0;
+
+  const taskCountsByDate = (tasks || []).reduce((acc, task) => {
+    const key = toDateKey(task && task.createdAt);
+    if (!key) return acc;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Header />
       <ScrollView
         style={styles.content}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding }]}
         onLayout={(e) => setScrollViewportHeight(e.nativeEvent.layout.height)}
         onContentSizeChange={(w, h) => setTotalContentHeight(h)}
         scrollEnabled={isScrollEnabled}
@@ -47,16 +77,15 @@ const HomeScreen = () => {
       >
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <View style={styles.zeroRow}>
-              <Text style={styles.zeroLarge}>0</Text>
-              <Text style={styles.zeroSlash}>/</Text>
-              <Text style={styles.zeroSmall}>0</Text>
-            </View>
+            <Text style={styles.statNumber}>
+              0
+              <Text style={styles.statNumberMinor}>/0</Text>
+            </Text>
             <Text style={styles.statLabel}>{getTranslation('completed', language)}</Text>
           </View>
           <View style={styles.statItem}>
             <View style={styles.flameContainer}>
-              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statNumber}>0</Text>
               <Image 
                 source={require('../assets/icons/5e7dd1907f8677660224a5cc413fab5fbf1ba689.png')} 
                 style={styles.flameIcon}
@@ -65,37 +94,36 @@ const HomeScreen = () => {
             </View>
           </View>
           <View style={styles.statItem}>
-            <View style={styles.percentRow}>
-              <Text style={styles.percentZero}>0</Text>
-              <Text style={styles.percentSymbol}>%</Text>
-            </View>
+            <Text style={styles.statNumber}>0%</Text>
             <Text style={styles.statLabel}>{getTranslation('progress', language)}</Text>
           </View>
         </View>
 
-        <Calendar />
+        <Calendar taskCountsByDate={taskCountsByDate} />
 
         <View style={styles.whiteSection}>
-          <View style={styles.segmentedWrapper}>
-            <View style={styles.segmentedBaseBg} pointerEvents="none" />
-            <View
-              style={[
-                styles.segmentedActiveBg,
-                activeTab === 'tasks' ? styles.segmentLeftActiveBg : styles.segmentRightActiveBg,
-              ]}
-              pointerEvents="none"
-            />
-            <View style={styles.segmentedButtons}>
-              <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('tasks')}>
-                <Text style={activeTab === 'tasks' ? styles.segmentActiveText : styles.segmentText}>
-                  {getTranslation('tasks', language)}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('habits')}>
-                <Text style={activeTab === 'habits' ? styles.segmentActiveText : styles.segmentText}>
-                  {getTranslation('habits', language)}
-                </Text>
-              </TouchableOpacity>
+          <View style={styles.tabsPanel}>
+            <View style={styles.segmentedWrapper}>
+              <View style={styles.segmentedBaseBg} pointerEvents="none" />
+              <View
+                style={[
+                  styles.segmentedActiveBg,
+                  activeTab === 'tasks' ? styles.segmentLeftActiveBg : styles.segmentRightActiveBg,
+                ]}
+                pointerEvents="none"
+              />
+              <View style={styles.segmentedButtons}>
+                <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('tasks')}>
+                  <Text style={activeTab === 'tasks' ? styles.segmentActiveText : styles.segmentText}>
+                    {getTranslation('tasks', language)}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('habits')}>
+                  <Text style={activeTab === 'habits' ? styles.segmentActiveText : styles.segmentText}>
+                    {getTranslation('habits', language)}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
           {hasItems ? (
@@ -110,23 +138,25 @@ const HomeScreen = () => {
             </View>
           ) : (
             <View style={styles.tasksPlaceholder}>
-              {activeTab === 'tasks' ? (
-                <>
-                  <Text style={styles.placeholderText}>{getTranslation('noTasks', language)}</Text>
-                  <Text style={styles.placeholderSubtext}>
-                    {getTranslation('createFirst', language)}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.habitsHint}>
-                    {getTranslation('startJourney', language)}
-                  </Text>
-                  <Text style={styles.habitsHintSub}>
-                    {getTranslation('addFirst', language)}
-                  </Text>
-                </>
-              )}
+              <View style={styles.placeholderInner}>
+                {activeTab === 'tasks' ? (
+                  <>
+                    <Text style={styles.placeholderText}>{getTranslation('noTasks', language)}</Text>
+                    <Text style={styles.placeholderSubtext}>
+                      {getTranslation('createFirst', language)}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.habitsHint}>
+                      {getTranslation('startJourney', language)}
+                    </Text>
+                    <Text style={styles.habitsHintSub}>
+                      {getTranslation('addFirst', language)}
+                    </Text>
+                  </>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -138,19 +168,20 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#FAF9F9',
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 0,
     flexGrow: 1,
   },
   statsCard: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#98CFC7',
+    backgroundColor: '#F8F5E9',
+    borderWidth: 1,
+    borderColor: '#514134',
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     paddingVertical: SPACING.lg,
@@ -161,86 +192,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statValue: {
-    fontSize: 40,
-    fontWeight: '500',
+  statNumber: {
+    fontSize: 32,
+    fontWeight: '600',
     fontFamily: 'Montserrat-Medium',
-    color: '#1B4332',
-    lineHeight: 40,
+    color: '#000000',
+    lineHeight: 36,
   },
-  zeroContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zeroBaseWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zeroRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  zeroLarge: {
-    fontSize: 40,
-    fontWeight: '500',
+  statNumberMinor: {
+    fontSize: 18,
+    fontWeight: '400',
     fontFamily: 'Montserrat-Medium',
-    color: '#1B4332',
-    lineHeight: 40,
-    includeFontPadding: false,
-  },
-  superscriptGroup: {
-    position: 'absolute',
-    top: FONTS.sizes.sm,
-    left: FONTS.sizes.md,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  zeroSlash: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: 'bold',
-    color: '#1B4332',
-    lineHeight: FONTS.sizes.lg,
-    includeFontPadding: false,
-  },
-  zeroSmall: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: 'bold',
-    color: '#1B4332',
-    lineHeight: FONTS.sizes.lg,
-    marginLeft: 2,
-    marginTop: -2,
-    includeFontPadding: false,
-  },
-  percentRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  percentZero: {
-    fontSize: 40,
-    fontWeight: '500',
-    fontFamily: 'Montserrat-Medium',
-    color: '#1B4332',
-    lineHeight: 40,
-    includeFontPadding: false,
-  },
-  percentSymbol: {
-    position: 'absolute',
-    top: FONTS.sizes.sm,
-    right: -FONTS.sizes.md,
-    fontSize: FONTS.sizes.lg,
-    fontWeight: 'bold',
-    color: '#1B4332',
-    lineHeight: FONTS.sizes.lg,
-    includeFontPadding: false,
+    color: '#000000',
   },
   statLabel: {
     fontSize: FONTS.sizes.md,
-    color: '#1B4332',
-    marginTop: SPACING.xs,
+    color: '#514134',
+    marginTop: 2,
     textAlign: 'center',
     fontWeight: 'normal',
   },
@@ -261,57 +229,64 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   whiteSection: {
-    flexGrow: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: SPACING.md,
+    flexGrow: 1,
+    backgroundColor: '#FAF9F9',
+    paddingHorizontal: 0,
     paddingTop: 0,
     paddingBottom: SPACING.lg,
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
+    marginHorizontal: 0,
+    marginTop: SPACING.sm,
     overflow: 'hidden',
+    minHeight: 200,
+  },
+  tabsPanel: {
+    backgroundColor: '#F8F5E9',
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
   },
   segmentedWrapper: {
     position: 'relative',
     height: 48,
     width: '100%',
-    marginLeft: -SPACING.lg,
-    marginRight: -SPACING.lg,
+    marginLeft: 0,
+    marginRight: 0,
     marginTop: 0,
     alignSelf: 'center',
   },
   segmentedBaseBg: {
     position: 'absolute',
     top: 0,
-    left: -SPACING.lg,
-    right: -SPACING.lg,
+    left: 0,
+    right: 0,
     height: '100%',
-    backgroundColor: COLORS.primary,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: '#F8F5E9',
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
   },
   segmentedActiveBg: {
     position: 'absolute',
     top: 0,
     height: '100%',
-    width: '65%',
-    backgroundColor: COLORS.primaryStrong,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    width: '50%',
+    backgroundColor: COLORS.primaryDark,
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
   },
   segmentLeftActiveBg: {
-    left: -SPACING.lg,
-    marginLeft: -SPACING.md,
+    left: 0,
   },
   segmentRightActiveBg: {
-    right: -SPACING.lg,
-    marginRight: -SPACING.md,
+    right: 0,
   },
   segmentedButtons: {
     position: 'absolute',
     top: 0,
-    left: -SPACING.lg,
-    right: -SPACING.lg,
+    left: 0,
+    right: 0,
     bottom: 0,
     flexDirection: 'row',
   },
@@ -322,14 +297,14 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     fontSize: FONTS.sizes.lg,
-    color: COLORS.text,
+    color: '#000000',
     fontWeight: '500',
     fontFamily: 'Montserrat-Medium',
   },
   segmentActiveText: {
     fontSize: FONTS.sizes.lg,
     color: '#FFFFFF',
-    fontWeight: '500',
+    fontWeight: '600',
     fontFamily: 'Montserrat-Medium',
   },
   tab: {
@@ -356,47 +331,70 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tasksPlaceholder: {
+    flex: 1,
     marginTop: SPACING.lg,
     padding: SPACING.xl,
+    minHeight: 120,
+  },
+  placeholderInner: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: FONTS.sizes.lg,
-    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    color: '#898989',
     fontStyle: 'italic',
     textAlign: 'center',
-    opacity: 0.7,
-    fontFamily: 'Montserrat-Medium',
+    fontFamily: 'Montserrat-Regular',
   },
   placeholderSubtext: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    color: '#898989',
     marginTop: SPACING.xs,
     fontStyle: 'italic',
     textAlign: 'center',
-    opacity: 0.7,
-    fontFamily: 'Montserrat-Medium',
+    fontFamily: 'Montserrat-Regular',
   },
   habitsHint: {
-    fontSize: FONTS.sizes.lg,
-    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    color: '#898989',
     fontStyle: 'italic',
     textAlign: 'center',
-    opacity: 0.7,
-    fontFamily: 'Montserrat-Medium',
+    opacity: 1,
+    fontFamily: 'Montserrat-Regular',
   },
   habitsHintSub: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.xs,
+    color: '#898989',
     fontStyle: 'italic',
     textAlign: 'center',
-    opacity: 0.7,
+    opacity: 1,
     marginTop: SPACING.xs,
-    fontFamily: 'Montserrat-Medium',
+    fontFamily: 'Montserrat-Regular',
   },
   tasksList: {
     marginTop: SPACING.lg,
     paddingHorizontal: SPACING.sm,
+  },
+  centerActionWrapper: {
+    marginTop: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerActionPill: {
+    flexDirection: 'row',
+    backgroundColor: '#F8F5E9',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: '#514134',
+    overflow: 'hidden',
+  },
+  centerActionSegment: {
+    width: 64,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

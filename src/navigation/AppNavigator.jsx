@@ -16,12 +16,12 @@ import { COLORS, SPACING, FONTS } from '../styles/theme';
 const Tab = createBottomTabNavigator();
 
 const TabBarBackground = () => (
-  <View style={styles.tabBgWrapper} pointerEvents="none">
+  <View style={[styles.tabBgWrapper, { backgroundColor: '#F8F5E9' }]} pointerEvents="none">
     <Svg width="100%" height="100%">
       <Defs>
         <SvgLinearGradient id="tabGrad" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#B8EFE6" stopOpacity="1" />
-          <Stop offset="1" stopColor="#D9D9D9" stopOpacity="1" />
+          <Stop offset="0" stopColor="#F8F5E9" stopOpacity="1" />
+          <Stop offset="1" stopColor="#F8F5E9" stopOpacity="1" />
         </SvgLinearGradient>
       </Defs>
       <Rect x="0" y="0" width="100%" height="100%" fill="url(#tabGrad)" />
@@ -34,7 +34,7 @@ const TabBarBackgroundWhite = () => (
     <Svg width="100%" height="100%">
       <Defs>
         <SvgLinearGradient id="tabGradWhite" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#B8EFE6" stopOpacity="1" />
+          <Stop offset="0" stopColor="#E8E0D5" stopOpacity="1" />
           <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
         </SvgLinearGradient>
       </Defs>
@@ -62,7 +62,7 @@ const AppNavigator = () => {
         {...props}
       >
         <View style={styles.plusInner}>
-          <Icon name="add" size={20} color="#000000" />
+          <Icon name="add" size={20} color={COLORS.text} />
         </View>
       </TouchableOpacity>
     );
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.primaryDark,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { SPACING } from '../../styles/theme';
+import { SPACING, COLORS } from '../../styles/theme';
 
 const CoinsIcon = () => (
   <Image 
@@ -36,11 +36,12 @@ const ProgressRing = ({ size = 50, strokeWidth = 4, progress = 0.75 }) => {
   
   return (
     <Svg width={size} height={size} style={styles.progressRing}>
+      {/* базовый фон кольца делаем в светлом бежевом тоне */}
       <Circle
         cx={center}
         cy={center}
         r={radius}
-        stroke="#E5E7EB"
+        stroke="#F8F5E9"
         strokeWidth={strokeWidth}
         fill="none"
       />
@@ -48,7 +49,7 @@ const ProgressRing = ({ size = 50, strokeWidth = 4, progress = 0.75 }) => {
         cx={center}
         cy={center}
         r={radius}
-        stroke="#1B4332"
+        stroke="#514134"
         strokeWidth={strokeWidth}
         fill="none"
         strokeDasharray={strokeDasharray}
@@ -96,7 +97,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: COLORS.background,
   },
   menuButton: {
     padding: SPACING.xs,
@@ -143,7 +144,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: -5,
-    backgroundColor: '#1B4332',
+    backgroundColor: '#514134',
     borderRadius: 10,
     width: 20,
     height: 20,

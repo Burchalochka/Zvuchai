@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Animated } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { useLanguage } from '../context/LanguageContext';
-import { FONTS, SPACING } from '../styles/theme';
+import { FONTS, SPACING, COLORS } from '../styles/theme';
 import { getTranslation } from '../utils/translations';
 
 const LanguageSelectionScreen = ({ onLanguageSelected }) => {
@@ -411,7 +411,7 @@ const LanguageSelectionScreen = ({ onLanguageSelected }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#98CFC7',
+    backgroundColor: '#F8F5E9',
     opacity: 0.25,
     zIndex: 0,
     top: -10,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     zIndex: 1,
-    shadowColor: '#63BDAF',
+    shadowColor: '#C4B5A0',
     shadowOffset: {
       width: 0,
       height: 8,
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 90,
     borderWidth: 3,
-    borderColor: '#1B4332',
+    borderColor: '#514134',
     opacity: 0.2,
     zIndex: 3,
     top: 0,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   chooseLanguageText: {
     fontSize: FONTS.sizes.lg + 4,
     fontWeight: '500',
-    color: '#1B4332',
+    color: '#514134',
     fontFamily: 'Montserrat-Medium',
     textAlign: 'center',
     marginBottom: SPACING.xl,
@@ -524,8 +524,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md + 4,
     paddingHorizontal: SPACING.lg,
     borderWidth: 2,
-    borderColor: '#98CFC7',
-    shadowColor: '#63BDAF',
+    borderColor: '#F8F5E9',
+    shadowColor: '#C4B5A0',
     shadowOffset: {
       width: 0,
       height: 3,
@@ -541,11 +541,11 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#63BDAF',
+    backgroundColor: '#C4B5A0',
     pointerEvents: 'none',
   },
   languageButtonSelected: {
-    borderColor: '#63BDAF',
+    borderColor: '#C4B5A0',
     borderWidth: 3,
     backgroundColor: '#F0FDFA',
     shadowOpacity: 0.4,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginRight: SPACING.md,
     borderWidth: 2,
-    borderColor: '#B8EFE6',
+    borderColor: '#E8E0D5',
     backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
@@ -571,18 +571,18 @@ const styles = StyleSheet.create({
   languageButtonText: {
     fontSize: FONTS.sizes.md + 2,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#514134',
     fontFamily: 'Montserrat-SemiBold',
     flex: 1,
   },
   selectButton: {
-    backgroundColor: '#98CFC7',
+    backgroundColor: '#F8F5E9',
     borderRadius: 12,
     paddingVertical: SPACING.md + 4,
     paddingHorizontal: SPACING.xl,
     width: '100%',
     alignItems: 'center',
-    shadowColor: '#63BDAF',
+    shadowColor: '#C4B5A0',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -595,14 +595,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   selectButtonDisabled: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.border,
     shadowOpacity: 0.1,
     elevation: 2,
   },
   selectButtonText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#514134',
     fontFamily: 'Montserrat-SemiBold',
     position: 'relative',
     zIndex: 10,
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   dotActive: {
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.primaryDark,
     width: 24,
   },
   dotInactive: {
