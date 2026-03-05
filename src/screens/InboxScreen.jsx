@@ -30,6 +30,8 @@ const TAB_BAR_HEIGHT = 74;
  * @property {number | undefined} confidenceScore
  * @property {'none' | 'flexible' | 'exact' | undefined} deadlineType
  * @property {string | undefined} dateInfo
+ * @property {string | undefined} timeInfo
+ * @property {string | undefined} dateRange
  */
 
 /** @type {InboxTask[]} */
@@ -43,6 +45,8 @@ const MOCK_TASKS = [
     confidenceScore: 65,
     deadlineType: 'exact',
     dateInfo: 'Сьогодні',
+    timeInfo: '14:00',
+    dateRange: undefined,
   },
   {
     id: 't2',
@@ -53,6 +57,8 @@ const MOCK_TASKS = [
     confidenceScore: 72,
     deadlineType: 'flexible',
     dateInfo: 'Цього тижня',
+    timeInfo: undefined,
+    dateRange: '23 лютого — 1 березня',
   },
   {
     id: 't3',
@@ -63,6 +69,8 @@ const MOCK_TASKS = [
     confidenceScore: undefined,
     deadlineType: 'none',
     dateInfo: 'Без дедлайну',
+    timeInfo: undefined,
+    dateRange: undefined,
   },
   {
     id: 't4',
@@ -72,7 +80,9 @@ const MOCK_TASKS = [
     status: 'pending',
     confidenceScore: undefined,
     deadlineType: 'flexible',
-    dateInfo: '23 лютого — 1 березня',
+    dateInfo: 'Цього тижня',
+    timeInfo: undefined,
+    dateRange: '23 лютого — 1 березня',
   },
 ];
 
@@ -98,18 +108,8 @@ const InboxScreen = () => {
   const handleMainTabChange = (tabKey) => {
     setActiveMainTab(tabKey);
     if (tabKey === MAIN_TABS.AI_UNSURE) {
-      if (
-        activeSubTab === SUB_TABS.TODAY ||
-        activeSubTab === SUB_TABS.ALL ||
-        activeSubTab === SUB_TABS.FAVORITES
-      ) {
-        return;
-      }
       setActiveSubTab(SUB_TABS.TODAY);
     } else {
-      if (activeSubTab === SUB_TABS.ALL || activeSubTab === SUB_TABS.FAVORITES) {
-        return;
-      }
       setActiveSubTab(SUB_TABS.ALL);
     }
   };
@@ -151,7 +151,7 @@ const InboxScreen = () => {
 
       return (
         <View style={styles.subTabsContainer}>
-          <View style={styles.subSegmentedWrapper}>
+          <View style={styles.subSegmentedWrapper3}>
             <View style={styles.subSegmentedBaseBg} pointerEvents="none" />
             <View
               style={[
@@ -163,7 +163,7 @@ const InboxScreen = () => {
               pointerEvents="none"
             />
             <View style={styles.subSegmentedButtons}>
-              {subSegments.map((seg, idx) => (
+              {subSegments.map((seg) => (
                 <TouchableOpacity
                   key={seg.key}
                   style={styles.subSegmentButton}
@@ -194,7 +194,7 @@ const InboxScreen = () => {
 
     return (
       <View style={styles.subTabsContainer}>
-        <View style={styles.subSegmentedWrapper}>
+        <View style={styles.subSegmentedWrapper2}>
           <View style={styles.subSegmentedBaseBg} pointerEvents="none" />
           <View
             style={[
@@ -230,54 +230,55 @@ const InboxScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Header onMenuPress={() => setIsSideMenuVisible((prev) => !prev)} />
-      <View style={styles.content}>
-        <View style={styles.topSection}>
-          <View style={styles.segmentedWrapper}>
-            <View style={styles.segmentedBaseBg} pointerEvents="none" />
-            <View
-              style={[
-                styles.segmentedActiveBg,
+
+      {/* Main segmented control — flush to header */}
+      <View style={styles.mainSegmentedWrapper}>
+        <View style={styles.mainSegmentedBaseBg} pointerEvents="none" />
+        <View
+          style={[
+            styles.mainSegmentedActiveBg,
+            activeMainTab === MAIN_TABS.NO_DEADLINE
+              ? styles.segmentLeftActiveBg
+              : styles.segmentRightActiveBg,
+          ]}
+          pointerEvents="none"
+        />
+        <View style={styles.mainSegmentedButtons}>
+          <TouchableOpacity
+            style={styles.segmentButton}
+            onPress={() => handleMainTabChange(MAIN_TABS.NO_DEADLINE)}
+          >
+            <Text
+              style={
                 activeMainTab === MAIN_TABS.NO_DEADLINE
-                  ? styles.segmentLeftActiveBg
-                  : styles.segmentRightActiveBg,
-              ]}
-              pointerEvents="none"
-            />
-            <View style={styles.segmentedButtons}>
-              <TouchableOpacity
-                style={styles.segmentButton}
-                onPress={() => handleMainTabChange(MAIN_TABS.NO_DEADLINE)}
-              >
-                <Text
-                  style={
-                    activeMainTab === MAIN_TABS.NO_DEADLINE
-                      ? styles.segmentActiveText
-                      : styles.segmentText
-                  }
-                >
-                  Без дедлайну
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.segmentButton}
-                onPress={() => handleMainTabChange(MAIN_TABS.AI_UNSURE)}
-              >
-                <Text
-                  style={
-                    activeMainTab === MAIN_TABS.AI_UNSURE
-                      ? styles.segmentActiveText
-                      : styles.segmentText
-                  }
-                >
-                  ШІ не впевнений
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {renderSubTabs()}
+                  ? styles.segmentActiveText
+                  : styles.segmentText
+              }
+            >
+              Без дедлайну
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.segmentButton}
+            onPress={() => handleMainTabChange(MAIN_TABS.AI_UNSURE)}
+          >
+            <Text
+              style={
+                activeMainTab === MAIN_TABS.AI_UNSURE
+                  ? styles.segmentActiveText
+                  : styles.segmentText
+              }
+            >
+              ШІ не впевнений
+            </Text>
+          </TouchableOpacity>
         </View>
+      </View>
 
+      {/* Sub tabs */}
+      {renderSubTabs()}
+
+      <View style={styles.content}>
         <FlatList
           data={filteredTasks}
           keyExtractor={(item) => item.id}
@@ -313,30 +314,10 @@ const InboxScreen = () => {
           onPress={() => setIsSideMenuVisible(false)}
         >
           <View style={styles.sideMenuPill}>
-            <Icon
-              name="list-outline"
-              size={24}
-              color="#514134"
-              style={styles.sideMenuIcon}
-            />
-            <Icon
-              name="calendar-outline"
-              size={24}
-              color="#514134"
-              style={styles.sideMenuIcon}
-            />
-            <Icon
-              name="star-outline"
-              size={24}
-              color="#514134"
-              style={styles.sideMenuIcon}
-            />
-            <Icon
-              name="settings-outline"
-              size={24}
-              color="#514134"
-              style={styles.sideMenuIcon}
-            />
+            <Icon name="list-outline" size={24} color="#514134" style={styles.sideMenuIcon} />
+            <Icon name="calendar-outline" size={24} color="#514134" style={styles.sideMenuIcon} />
+            <Icon name="star-outline" size={24} color="#514134" style={styles.sideMenuIcon} />
+            <Icon name="settings-outline" size={24} color="#514134" style={styles.sideMenuIcon} />
           </View>
         </Pressable>
       )}
@@ -349,14 +330,49 @@ const InboxScreen = () => {
   );
 };
 
+// ─── Task Card ────────────────────────────────────────────────────────────────
+
 const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
   const isNoDeadline = mainTab === MAIN_TABS.NO_DEADLINE;
   const hasConfidence = showConfidence && typeof task.confidenceScore === 'number';
 
+  if (isNoDeadline) {
+    // "Без дедлайну" layout: content left, action buttons top-right stacked
+    return (
+      <View style={styles.cardContainer}>
+        {/* Content */}
+        <View style={styles.cardContentNoDeadline}>
+          <Text style={styles.cardTitle}>{task.title}</Text>
+          <View style={styles.cardDateRow}>
+            <Icon name="calendar-outline" size={15} color="#514134" style={styles.cardDateIcon} />
+            <View>
+              <Text style={styles.cardDateText}>{task.dateInfo || 'Без дати'}</Text>
+              {task.dateRange ? (
+                <Text style={styles.cardDateSubText}>{task.dateRange}</Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {/* Top-right action buttons */}
+        <View style={styles.noDeadlineActions}>
+          <TouchableOpacity style={styles.circleActionBtn}>
+            <Icon name="close-outline" size={18} color="#514134" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.circleActionBtn, { marginTop: 6 }]}>
+            <Icon name="pencil-outline" size={16} color="#514134" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // "ШІ не впевнений" layout: compact, actions inline with date row
   return (
-    <View style={styles.cardContainer}>
+    <View style={styles.cardContainerAi}>
+      {/* Header row: title + confidence badge */}
       <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitle}>{task.title}</Text>
+        <Text style={styles.cardTitleAi}>{task.title}</Text>
         {hasConfidence && (
           <View style={styles.confidenceBadge}>
             <Text style={styles.confidenceText}>{`${task.confidenceScore}%`}</Text>
@@ -364,72 +380,50 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
         )}
       </View>
 
-      <View style={styles.cardInfoRow}>
+      {/* Bottom row: date info + action buttons on the right */}
+      <View style={styles.cardBottomRow}>
         <View style={styles.cardDateRow}>
-          <Icon
-            name="calendar-outline"
-            size={16}
-            color="#514134"
-            style={styles.cardDateIcon}
-          />
-          <Text style={styles.cardDateText}>{task.dateInfo || 'Без дати'}</Text>
+          <Icon name="calendar-outline" size={15} color="#514134" style={styles.cardDateIcon} />
+          <View>
+            <Text style={styles.cardDateText}>
+              {task.dateInfo}
+              {task.timeInfo ? ` • ${task.timeInfo}` : ''}
+            </Text>
+            {task.dateRange ? (
+              <Text style={styles.cardDateSubText}>{task.dateRange}</Text>
+            ) : null}
+          </View>
         </View>
-      </View>
 
-      <View style={styles.cardActionsRow}>
-        <View
-          style={[
-            styles.cardActionsGroup,
-            isNoDeadline ? styles.cardActionsGroupVertical : styles.cardActionsGroupHorizontal,
-          ]}
-        >
-          {isNoDeadline ? (
-            <>
-              <TouchableOpacity style={[styles.actionButton, styles.actionNeutral]}>
-                <Icon name="close-circle-outline" size={22} color="#514134" />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.actionNeutral]}>
-                <Icon name="pencil" size={20} color="#514134" />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity style={[styles.actionButton, styles.actionPositive]}>
-                <Icon name="checkmark-circle-outline" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.actionNegative]}>
-                <Icon name="close-circle-outline" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.actionNeutral]}>
-                <Icon name="pencil" size={20} color="#514134" />
-              </TouchableOpacity>
-            </>
-          )}
+        {/* Action buttons: check, X, pencil — neutral colors */}
+        <View style={styles.aiActionsRow}>
+          <TouchableOpacity style={styles.circleActionBtn}>
+            <Icon name="checkmark-outline" size={17} color="#514134" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.circleActionBtn, { marginHorizontal: 4 }]}>
+            <Icon name="close-outline" size={17} color="#514134" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.circleActionBtn}>
+            <Icon name="pencil-outline" size={15} color="#514134" />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 };
 
+// ─── Calendar Modal ───────────────────────────────────────────────────────────
+
 const CalendarRangeModal = ({ visible, onClose }) => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            Період виконання
-          </Text>
-          <Text style={styles.modalSubtitle}>
-            Оберіть початкову та кінцеву дату
-          </Text>
+          <Text style={styles.modalTitle}>Період виконання</Text>
+          <Text style={styles.modalSubtitle}>Оберіть початкову та кінцеву дату</Text>
 
           <DateRangeCalendar
             startDate={startDate}
@@ -440,14 +434,8 @@ const CalendarRangeModal = ({ visible, onClose }) => {
             }}
           />
 
-          <TouchableOpacity
-            style={styles.modalConfirmButton}
-            onPress={onClose}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.modalConfirmText}>
-              Підтвердити
-            </Text>
+          <TouchableOpacity style={styles.modalConfirmButton} onPress={onClose} activeOpacity={0.85}>
+            <Text style={styles.modalConfirmText}>Підтвердити</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -455,29 +443,13 @@ const CalendarRangeModal = ({ visible, onClose }) => {
   );
 };
 
-/**
- * @typedef {Object} DateRangeCalendarProps
- * @property {Date | null} startDate
- * @property {Date | null} endDate
- * @property {(start: Date | null, end: Date | null) => void} onChange
- */
+// ─── Date Range Calendar ──────────────────────────────────────────────────────
 
 const MONTH_NAMES_UA = [
-  'Січень',
-  'Лютий',
-  'Березень',
-  'Квітень',
-  'Травень',
-  'Червень',
-  'Липень',
-  'Серпень',
-  'Вересень',
-  'Жовтень',
-  'Листопад',
-  'Грудень',
+  'Січень','Лютий','Березень','Квітень','Травень','Червень',
+  'Липень','Серпень','Вересень','Жовтень','Листопад','Грудень',
 ];
-
-const WEEK_DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+const WEEK_DAYS_SHORT = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
 
 const startOfDay = (date) => {
   if (!date) return null;
@@ -494,58 +466,34 @@ const isSameDay = (a, b) => {
 const isBetweenExclusive = (date, start, end) => {
   if (!start || !end) return false;
   const t = startOfDay(date).getTime();
-  const s = startOfDay(start).getTime();
-  const e = startOfDay(end).getTime();
-  return t > s && t < e;
+  return t > startOfDay(start).getTime() && t < startOfDay(end).getTime();
 };
 
 const buildMonthDays = (currentMonthDate) => {
   const year = currentMonthDate.getFullYear();
   const month = currentMonthDate.getMonth();
-
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-
   const daysInMonth = lastDay.getDate();
   const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-
   const days = [];
-
   const prevMonthDays = new Date(year, month, 0).getDate();
   for (let i = startDay - 1; i >= 0; i--) {
-    days.push({
-      date: prevMonthDays - i,
-      isCurrentMonth: false,
-      fullDate: new Date(year, month - 1, prevMonthDays - i),
-    });
+    days.push({ date: prevMonthDays - i, isCurrentMonth: false, fullDate: new Date(year, month - 1, prevMonthDays - i) });
   }
-
   for (let i = 1; i <= daysInMonth; i++) {
-    days.push({
-      date: i,
-      isCurrentMonth: true,
-      fullDate: new Date(year, month, i),
-    });
+    days.push({ date: i, isCurrentMonth: true, fullDate: new Date(year, month, i) });
   }
-
   const totalSlots = Math.ceil(days.length / 7) * 7;
   const nextMonthDate = new Date(year, month + 1, 1);
   let extraDay = 1;
   while (days.length < totalSlots) {
-    days.push({
-      date: extraDay,
-      isCurrentMonth: false,
-      fullDate: new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), extraDay),
-    });
+    days.push({ date: extraDay, isCurrentMonth: false, fullDate: new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), extraDay) });
     extraDay += 1;
   }
-
   return days;
 };
 
-/**
- * @param {DateRangeCalendarProps} props
- */
 const DateRangeCalendar = ({ startDate, endDate, onChange }) => {
   const [currentMonth, setCurrentMonth] = useState(() => startOfDay(startDate) || new Date());
   const monthDays = useMemo(() => buildMonthDays(currentMonth), [currentMonth]);
@@ -556,11 +504,8 @@ const DateRangeCalendar = ({ startDate, endDate, onChange }) => {
       onChange(selectedDate, null);
       return;
     }
-
     const s = startOfDay(startDate);
-    if (selectedDate.getTime() < s.getTime()) {
-      onChange(selectedDate, null);
-    } else if (selectedDate.getTime() === s.getTime()) {
+    if (selectedDate.getTime() <= s.getTime()) {
       onChange(selectedDate, null);
     } else {
       onChange(startDate, selectedDate);
@@ -578,37 +523,24 @@ const DateRangeCalendar = ({ startDate, endDate, onChange }) => {
   return (
     <View style={styles.rangeCalendarContainer}>
       <View style={styles.rangeCalendarHeader}>
-        <TouchableOpacity
-          style={styles.rangeMonthButton}
-          onPress={() => handleChangeMonth(-1)}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.rangeMonthButton} onPress={() => handleChangeMonth(-1)} activeOpacity={0.8}>
           <Icon name="chevron-back" size={20} color="#514134" />
         </TouchableOpacity>
         <Text style={styles.rangeCalendarHeaderText}>{headerLabel}</Text>
-        <TouchableOpacity
-          style={styles.rangeMonthButton}
-          onPress={() => handleChangeMonth(1)}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.rangeMonthButton} onPress={() => handleChangeMonth(1)} activeOpacity={0.8}>
           <Icon name="chevron-forward" size={20} color="#514134" />
         </TouchableOpacity>
       </View>
-
       <View style={styles.rangeWeekDaysRow}>
         {WEEK_DAYS_SHORT.map((label) => (
-          <Text key={label} style={styles.rangeWeekDayLabel}>
-            {label}
-          </Text>
+          <Text key={label} style={styles.rangeWeekDayLabel}>{label}</Text>
         ))}
       </View>
-
       <View style={styles.rangeMonthGrid}>
         {monthDays.map((day, index) => {
           const isStart = isSameDay(day.fullDate, startDate);
           const isEnd = isSameDay(day.fullDate, endDate);
           const inRange = isBetweenExclusive(day.fullDate, startDate, endDate);
-
           return (
             <TouchableOpacity
               key={`${day.fullDate.toISOString()}-${index}`}
@@ -616,21 +548,17 @@ const DateRangeCalendar = ({ startDate, endDate, onChange }) => {
               activeOpacity={0.8}
               onPress={() => handleDayPress(day)}
             >
-              <View
-                style={[
-                  styles.rangeDayInner,
-                  !day.isCurrentMonth && styles.rangeDayOtherMonth,
-                  inRange && styles.rangeDayInRange,
-                  (isStart || isEnd) && styles.rangeDayEdge,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.rangeDayText,
-                    !day.isCurrentMonth && styles.rangeDayTextOther,
-                    (isStart || isEnd) && styles.rangeDayTextEdge,
-                  ]}
-                >
+              <View style={[
+                styles.rangeDayInner,
+                !day.isCurrentMonth && styles.rangeDayOtherMonth,
+                inRange && styles.rangeDayInRange,
+                (isStart || isEnd) && styles.rangeDayEdge,
+              ]}>
+                <Text style={[
+                  styles.rangeDayText,
+                  !day.isCurrentMonth && styles.rangeDayTextOther,
+                  (isStart || isEnd) && styles.rangeDayTextEdge,
+                ]}>
                   {day.date}
                 </Text>
               </View>
@@ -642,6 +570,8 @@ const DateRangeCalendar = ({ startDate, endDate, onChange }) => {
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -651,54 +581,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAF9F9',
   },
-  topSection: {
-    backgroundColor: '#FAF9F9',
-    borderTopLeftRadius: 35,
-    borderTopRightRadius: 35,
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  segmentedWrapper: {
+
+  // ── Main segmented control (flush to header, full width, rounded top) ──
+  mainSegmentedWrapper: {
     position: 'relative',
-    height: 47.1,
+    height: 52,
     width: '100%',
-    marginLeft: 0,
-    marginRight: 0,
-    marginTop: 0,
-    alignSelf: 'center',
+    borderTopLeftRadius: 42,
+    borderTopRightRadius: 42,
+    overflow: 'hidden',
+    marginTop: 12,
   },
-  segmentedBaseBg: {
+  mainSegmentedBaseBg: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '100%',
-    backgroundColor: '#F8F5E9',
-    borderTopLeftRadius: 35,
-    borderTopRightRadius: 35,
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: COLORS.base,
+    borderTopLeftRadius: 42,
+    borderTopRightRadius: 42,
   },
-  segmentedActiveBg: {
+  mainSegmentedActiveBg: {
     position: 'absolute',
     top: 0,
     height: '100%',
     width: '50%',
     backgroundColor: COLORS.primaryDark,
-    borderTopLeftRadius: 35,
-    borderTopRightRadius: 35,
+    borderTopLeftRadius: 42,
+    borderTopRightRadius: 42,
   },
-  segmentLeftActiveBg: {
-    left: 0,
-  },
-  segmentRightActiveBg: {
-    right: 0,
-  },
-  segmentedButtons: {
+  segmentLeftActiveBg: { left: 0 },
+  segmentRightActiveBg: { right: 0 },
+  mainSegmentedButtons: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     flexDirection: 'row',
   },
   segmentButton: {
@@ -707,72 +621,72 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentText: {
-    fontSize: FONTS.sizes.lg,
-    color: '#000000',
+    fontSize: FONTS.sizes.md,
+    color: '#514134',
     fontWeight: '500',
     fontFamily: 'Montserrat-Medium',
   },
   segmentActiveText: {
-    fontSize: FONTS.sizes.lg,
+    fontSize: FONTS.sizes.md,
     color: '#FFFFFF',
     fontWeight: '600',
-    fontFamily: 'Montserrat-Medium',
+    fontFamily: 'Montserrat-SemiBold',
   },
+
+  // ── Sub tabs ──
   subTabsContainer: {
     alignItems: 'center',
-    marginTop: SPACING.md,
-    width: '100%',
+    paddingTop: 12,
+    paddingBottom: 10,
+    backgroundColor: '#FAF9F9',
   },
-  subSegmentedWrapper: {
+  subSegmentedWrapper2: {
     position: 'relative',
-    height: 40,
-    width: '85%',
+    height: 38,
+    width: '55%',
+    maxWidth: 220,
+    alignSelf: 'center',
+  },
+  subSegmentedWrapper3: {
+    position: 'relative',
+    height: 38,
+    width: '78%',
     maxWidth: 300,
     alignSelf: 'center',
   },
   subSegmentedBaseBg: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '100%',
+    top: 0, left: 0, right: 0, height: '100%',
     backgroundColor: '#F8F5E9',
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#452C16',
   },
   subSegmentedActiveBg: {
     position: 'absolute',
-    top: 0,
-    height: '100%',
+    top: 1,
+    bottom: 1,
+    height: undefined,
     width: '33.33%',
     backgroundColor: COLORS.primaryDark || '#514134',
-    borderRadius: 20,
+    borderRadius: 18,
   },
   subSegmentedActiveBgTwo: {
     position: 'absolute',
-    top: 0,
-    height: '100%',
+    top: 1,
+    bottom: 1,
+    height: undefined,
     width: '50%',
     backgroundColor: COLORS.primaryDark || '#514134',
-    borderRadius: 20,
+    borderRadius: 18,
   },
-  subSegmentLeftBg: {
-    left: 0,
-  },
-  subSegmentCenterBg: {
-    left: '33.33%',
-  },
-  subSegmentRightBg: {
-    left: '66.66%',
-  },
-  subSegmentRightBgTwo: {
-    left: '50%',
-  },
+  subSegmentLeftBg: { left: 1 },
+  subSegmentCenterBg: { left: '33.33%' },
+  subSegmentRightBg: { left: '66.66%' },
+  subSegmentRightBgTwo: { left: '50%' },
   subSegmentedButtons: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     flexDirection: 'row',
   },
   subSegmentButton: {
@@ -790,6 +704,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Montserrat-SemiBold',
   },
+
+  // ── List ──
   listContent: {
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
@@ -798,32 +714,103 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
+
+  // ── Card: Без дедлайну ──
   cardContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingLeft: 16,
+    paddingRight: 14,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#E4DCC8',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardContentNoDeadline: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  noDeadlineActions: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginLeft: 10,
+  },
+
+  // ── Card: ШІ не впевнений ──
+  cardContainerAi: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     marginBottom: SPACING.md,
     borderWidth: 1,
     borderColor: '#E4DCC8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  cardTitle: {
+  cardTitleAi: {
     flex: 1,
     fontSize: FONTS.sizes.md,
     color: '#514134',
     fontFamily: 'Montserrat-SemiBold',
     marginRight: SPACING.sm,
   },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  aiActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+
+  // ── Shared card elements ──
+  cardTitle: {
+    fontSize: FONTS.sizes.md,
+    color: '#514134',
+    fontFamily: 'Montserrat-SemiBold',
+    marginBottom: 8,
+    marginRight: 8,
+  },
+  cardDateRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  cardDateIcon: {
+    marginRight: 6,
+    marginTop: 2,
+  },
+  cardDateText: {
+    fontSize: FONTS.sizes.sm,
+    color: '#514134',
+    fontFamily: 'Montserrat-Regular',
+  },
+  cardDateSubText: {
+    fontSize: FONTS.sizes.xs,
+    color: '#888',
+    fontFamily: 'Montserrat-Regular',
+    marginTop: 1,
+  },
+
+  // ── Confidence badge ──
   confidenceBadge: {
     minWidth: 44,
     paddingHorizontal: SPACING.xs,
@@ -840,55 +827,20 @@ const styles = StyleSheet.create({
     color: '#514134',
     fontFamily: 'Montserrat-Medium',
   },
-  cardInfoRow: {
-    marginTop: SPACING.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardDateIcon: {
-    marginRight: 6,
-  },
-  cardDateText: {
-    fontSize: FONTS.sizes.sm,
-    color: '#514134',
-    fontFamily: 'Montserrat-Regular',
-  },
-  cardActionsRow: {
-    marginTop: SPACING.md,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  cardActionsGroup: {
-    flexDirection: 'row',
+
+  // ── Circle action button (neutral, for both tabs) ──
+  circleActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#F8F5E9',
-    borderRadius: 999,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
     borderWidth: 1,
     borderColor: '#E4DCC8',
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 2,
   },
-  actionPositive: {
-    backgroundColor: '#4CAF50',
-  },
-  actionNegative: {
-    backgroundColor: '#E57373',
-  },
-  actionNeutral: {
-    backgroundColor: '#FFFFFF',
-  },
+
+  // ── Empty state ──
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -905,6 +857,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Montserrat-Medium',
   },
+
+  // ── Side menu ──
+  sideMenuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  sideMenuPill: {
+    marginLeft: SPACING.md,
+    height: '50%',
+    maxHeight: 320,
+    width: 70,
+    backgroundColor: '#F8F5E9',
+    borderRadius: 999,
+    paddingVertical: SPACING.lg,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  sideMenuIcon: {
+    marginVertical: SPACING.xs,
+  },
+
+  // ── Modal ──
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -938,24 +918,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-Regular',
     textAlign: 'center',
   },
-  calendarPlaceholder: {
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E4DCC8',
-    backgroundColor: '#F8F5E9',
-    paddingVertical: SPACING.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calendarPlaceholderText: {
-    marginTop: SPACING.sm,
-    fontSize: FONTS.sizes.sm,
-    color: '#514134',
-    textAlign: 'center',
-    fontFamily: 'Montserrat-Regular',
-  },
   modalConfirmButton: {
     marginTop: SPACING.md,
     backgroundColor: COLORS.primaryDark || '#514134',
@@ -969,36 +931,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'Montserrat-SemiBold',
   },
-  sideMenuOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  sideMenuPill: {
-    marginLeft: SPACING.md,
-    height: '50%',
-    maxHeight: 320,
-    width: 70,
-    backgroundColor: '#F8F5E9',
-    borderRadius: 999,
-    paddingVertical: SPACING.lg,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  sideMenuIcon: {
-    marginVertical: SPACING.xs,
-  },
-  cardActionsGroupVertical: {
-    flexDirection: 'column',
-  },
-  cardActionsGroupHorizontal: {
-    flexDirection: 'row',
-  },
+
+  // ── Range Calendar ──
   rangeCalendarContainer: {
     marginTop: SPACING.lg,
   },
@@ -1071,4 +1005,3 @@ const styles = StyleSheet.create({
 });
 
 export default InboxScreen;
-
