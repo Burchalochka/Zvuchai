@@ -18,6 +18,7 @@ const baseDefaults = {
   difficulty: 'medium',      // 'easy' | 'medium' | 'hard'
   estimatedDuration: null,   // minutes
   dueDate: null,             // 'YYYY-MM-DD'
+  deadline: null,            // 'YYYY-MM-DD'
   tags: [],
   reminder: {
     mode: 'before_start',    // 'before_start' | 'at_time'
@@ -27,7 +28,6 @@ const baseDefaults = {
     enabled: false,
   },
   linkedGoalId: null,
-  voiceNote: null,           // file URI string
   completedAt: null,         // generated: ISO datetime when status → 'completed'
   archived: false,
   deletedAt: null,           // generated: ISO datetime when deleted

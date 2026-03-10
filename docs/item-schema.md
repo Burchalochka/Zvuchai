@@ -34,13 +34,13 @@ Fields are grouped into three tiers reflecting when they are collected or popula
 | `themeColor` | hex string | Standard | `"#E8E0D5"` | One of 8 palette colors |
 | `priority` | `"low" \| "medium" \| "high"` | Standard | `"medium"` | |
 | `dueDate` | `"YYYY-MM-DD" \| null` | Standard | `null` | |
+| `deadline` | `"YYYY-MM-DD" \| null` | Standard | `null` | |
 | `reminder` | object | Standard | see below | |
 | `updatedAt` | ISO datetime string | Standard | generated | Updated on every write |
 | `tags` | `string[]` | Advanced | `[]` | Free-form labels |
 | `difficulty` | `"easy" \| "medium" \| "hard"` | Advanced | `"medium"` | |
 | `estimatedDuration` | `number \| null` | Advanced | `null` | Minutes |
 | `linkedGoalId` | `string \| null` | Advanced | `null` | ID of a goal this contributes to |
-| `voiceNote` | `string \| null` | Advanced | `null` | File URI of audio recording |
 | `archived` | `boolean` | Advanced | `false` | Hides item without deleting |
 | `completedAt` | ISO datetime \| `null` | Advanced | `null` | Auto-set when status → `"completed"` |
 | `deletedAt` | ISO datetime \| `null` | Advanced | `null` | Auto-set on soft delete |
@@ -153,6 +153,7 @@ Each function merges its type defaults with the provided overrides and injects:
   "difficulty": "medium",
   "estimatedDuration": 60,
   "dueDate": "2026-03-05",
+  "deadline": null,
   "tags": ["work", "design"],
   "reminder": {
     "mode": "before_start",
@@ -162,7 +163,6 @@ Each function merges its type defaults with the provided overrides and injects:
     "enabled": true
   },
   "linkedGoalId": null,
-  "voiceNote": null,
   "completedAt": null,
   "archived": false,
   "deletedAt": null,
@@ -188,6 +188,7 @@ Each function merges its type defaults with the provided overrides and injects:
   "difficulty": "medium",
   "estimatedDuration": 45,
   "dueDate": null,
+  "deadline": null,
   "tags": ["health", "fitness"],
   "reminder": {
     "mode": "before_start",
@@ -197,7 +198,6 @@ Each function merges its type defaults with the provided overrides and injects:
     "enabled": true
   },
   "linkedGoalId": null,
-  "voiceNote": null,
   "recurrence": {
     "type": "weekly",
     "days": [1, 2, 3, 4, 5]
@@ -230,6 +230,7 @@ Each function merges its type defaults with the provided overrides and injects:
   "difficulty": "hard",
   "estimatedDuration": null,
   "dueDate": null,
+  "deadline": null,
   "tags": ["learning", "personal"],
   "reminder": {
     "mode": "at_time",
@@ -239,7 +240,6 @@ Each function merges its type defaults with the provided overrides and injects:
     "enabled": true
   },
   "linkedGoalId": null,
-  "voiceNote": null,
   "target": {
     "value": 50,
     "unit": "books",
