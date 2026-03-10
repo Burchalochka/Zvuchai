@@ -23,6 +23,7 @@ CRITICAL RULES:
 4. DESCRIPTION LIMIT: Only extra details. Do NOT repeat the title. If none, return "".
 5. CURRENT SYSTEM TIME is ${currentTime}. Use this to calculate dates.
 6. SCOPE: We only support 'task' creation.
+7. DEADLINE: If the user explicitly mentions a deadline (e.g., "by 5 PM"), extract it into the "deadline" field as "YYYY-MM-DD HH:MM". If no deadline is mentioned, return null.
 
 JSON SCHEMA:
 {
@@ -31,6 +32,7 @@ JSON SCHEMA:
   "date": "YYYY-MM-DD",
   "startTime": "HH:MM",
   "endTime": "HH:MM",
+  "deadline": "2026-03-04 17:00", 
   "estimatedDuration": 60,
   "tags": ["робота"],
   "confidenceScore": 90
@@ -79,7 +81,7 @@ app.post('/api/parse-gemini', async (req, res) => {
 
     try {
         // Використовуємо стабільну версію API (v1) замість v1beta
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         
         const response = await fetch(url, {
             method: 'POST',
@@ -147,7 +149,86 @@ app.post('/api/parse-openrouter', async (req, res) => {
         res.status(500).json({ error: "Не вдалося розпарсити задачу через OpenRouter", details: error.message });
     }
 });
+// ==========================================
+// СУПЕР-ЕНДПОІНТ: АУДІО -> ГОТОВИЙ JSON (Повний цикл)
+// Ендпоінт: /api/process-audio
+// ==========================================
+app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
+    // 1. Перевіряємо, чи є файл
+    if (!req.file) {
+        return res.status(400).json({ error: "Аудіофайл не знайдено" });
+    }
 
+    // Multer автоматично дістає текстові поля з form-data і кладе їх у req.body
+    const { currentTime, deadZoneConflict } = req.body;
+    
+    // Оскільки з form-data булеві значення часто приходять як текст "true"/"false"
+    const isDeadZone = deadZoneConflict === 'true'; 
+
+    try {
+        console.log("Етап 1: Відправляємо аудіо на Groq...");
+        
+        // --- ЕТАП 1: Розпізнавання голосу (Groq) ---
+        const groqFormData = new FormData();
+        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+        groqFormData.append('file', blob, 'audio.m4a');
+        groqFormData.append('model', 'whisper-large-v3');
+        groqFormData.append('language', 'uk');
+
+        const groqResponse = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+            body: groqFormData
+        });
+
+        if (!groqResponse.ok) throw new Error("Помилка розпізнавання голосу від Groq");
+        const groqData = await groqResponse.json();
+        const recognizedText = groqData.text;
+        
+        console.log(`Розпізнано текст: "${recognizedText}"`);
+        console.log("Етап 2: Відправляємо текст на OpenRouter...");
+
+        // --- ЕТАП 2: Генерація задачі (OpenRouter) ---
+        const systemPrompt = getSystemPrompt(currentTime, isDeadZone);
+        const fullTextToAnalyze = systemPrompt + "\n\nUSER TEXT TO PARSE:\n" + recognizedText;
+
+        const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                'HTTP-Referer': 'https://zvuchai.com', 
+                'X-Title': 'Zvuchai App', 
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "model": "openrouter/free",
+                "messages": [
+                    { "role": "user", "content": fullTextToAnalyze }
+                ]
+            })
+        });
+
+        if (!aiResponse.ok) throw new Error("Помилка генерації задачі від OpenRouter");
+        
+        const aiData = await aiResponse.json();
+        let rawContent = aiData.choices[0].message.content;
+        const cleanJsonString = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const finalTask = JSON.parse(cleanJsonString);
+
+        console.log("Успіх! Задача згенерована.");
+
+        // --- ЕТАП 3: Віддаємо результат фронтенду ---
+        // Віддаємо і розпізнаний текст (щоб фронтенд міг показати його на екрані), і саму задачу
+        res.status(200).json({
+            originalText: recognizedText,
+            task: finalTask
+        });
+
+    } catch (error) {
+        console.error("Помилка в пайплайні process-audio:", error);
+        res.status(500).json({ error: "Не вдалося обробити голосове повідомлення", details: error.message });
+    }
+});
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
