@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import { TaskStorage, HabitStorage, GoalStorage } from '../services/StorageService';
 
 const TasksContext = createContext();
 
@@ -14,6 +15,20 @@ export const TasksProvider = ({ children }) => {
   const [tasks, setTasks] = useState([]);
   const [habits, setHabits] = useState([]);
   const [goals, setGoals] = useState([]);
+  const loaded = useRef(false);
+
+  // Load from storage on mount
+  useEffect(() => {
+    setTasks(TaskStorage.getAll());
+    setHabits(HabitStorage.getAll());
+    setGoals(GoalStorage.getAll());
+    loaded.current = true;
+  }, []);
+
+  // Persist on every change (guarded until after load)
+  useEffect(() => { if (loaded.current) TaskStorage.saveAll(tasks); }, [tasks]);
+  useEffect(() => { if (loaded.current) HabitStorage.saveAll(habits); }, [habits]);
+  useEffect(() => { if (loaded.current) GoalStorage.saveAll(goals); }, [goals]);
 
   const addTask = (task) => {
     setTasks((prev) => [...prev, task]);
@@ -29,17 +44,31 @@ export const TasksProvider = ({ children }) => {
 
   const toggleTaskComplete = (taskId) => {
     setTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
+      prev.map((task) => {
+        if (task.id !== taskId) return task;
+        const isCompleted = task.status === 'completed';
+        return {
+          ...task,
+          status: isCompleted ? 'pending' : 'completed',
+          completedAt: isCompleted ? null : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      })
     );
   };
 
   const toggleHabitComplete = (habitId) => {
     setHabits((prev) =>
-      prev.map((habit) =>
-        habit.id === habitId ? { ...habit, completed: !habit.completed } : habit
-      )
+      prev.map((habit) => {
+        if (habit.id !== habitId) return habit;
+        const isCompleted = habit.status === 'completed';
+        return {
+          ...habit,
+          status: isCompleted ? 'pending' : 'completed',
+          completedAt: isCompleted ? null : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      })
     );
   };
 
@@ -53,9 +82,16 @@ export const TasksProvider = ({ children }) => {
 
   const toggleGoalComplete = (goalId) => {
     setGoals((prev) =>
-      prev.map((goal) =>
-        goal.id === goalId ? { ...goal, completed: !goal.completed } : goal
-      )
+      prev.map((goal) => {
+        if (goal.id !== goalId) return goal;
+        const isCompleted = goal.status === 'completed';
+        return {
+          ...goal,
+          status: isCompleted ? 'pending' : 'completed',
+          completedAt: isCompleted ? null : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      })
     );
   };
 
@@ -84,4 +120,3 @@ export const TasksProvider = ({ children }) => {
     </TasksContext.Provider>
   );
 };
-
