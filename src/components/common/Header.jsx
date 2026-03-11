@@ -61,9 +61,9 @@ const ProgressRing = ({ size = 50, strokeWidth = 4, progress = 0.75 }) => {
   );
 };
 
-const Header = () => (
+const Header = ({ onMenuPress }) => (
   <View style={styles.container}>
-    <TouchableOpacity style={styles.menuButton}>
+    <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
       <NewIcon />
     </TouchableOpacity>
 

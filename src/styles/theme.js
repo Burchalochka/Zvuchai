@@ -13,11 +13,11 @@ export const COLORS = {
   error: '#EF4444',
   warning: '#F59E0B',
   border: '#D4C4B0',
-  // Макет: панелі та кнопки
-  panel: '#F1ECDB',           // нижня панель, вибрана дата, FAB
-  panelLight: '#F8F5E9',      // картки, сегменти
-  textDark: '#090808',        // основний текст макета
-  accentBrown: '#5A4C3D',     // вибрана вкладка, кнопка, картка
+  panel: '#F1ECDB',
+  panelLight: '#F8F5E9',
+  textDark: '#090808',
+  accentBrown: '#5A4C3D',
+  base: '#F8F5E9',
 };
 
 export const FONTS = {
