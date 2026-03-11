@@ -1,17 +1,23 @@
+// Палітра макета: панелі, текст, виділення
 export const COLORS = {
-  primary: '#E8E0D5',       // світло-бежевий
-  primaryDark: '#514134',   // коричневий для виділення
-  primaryStrong: '#C4B5A0', // насичений бежевий для активного сегмента
-  secondary: '#8B7355',     // коричневий акцент
-  background: '#FAF9F9',    // кремовий фон
-  text: '#321E00',          // темно-коричневий текст
-  textSecondary: '#6B5B4F', // сіро-коричневий
+  primary: '#E8E0D5',
+  primaryDark: '#514134',
+  primaryStrong: '#C4B5A0',
+  secondary: '#8B7355',
+  background: '#FAF9F9',
+  text: '#321E00',
+  textSecondary: '#6B5B4F',
   gray: '#8a8b8dff',
   grayLight: '#F5EDE4',
   success: '#9A8B6E',
   error: '#EF4444',
   warning: '#F59E0B',
   border: '#D4C4B0',
+  // Макет: панелі та кнопки
+  panel: '#F1ECDB',           // нижня панель, вибрана дата, FAB
+  panelLight: '#F8F5E9',      // картки, сегменти
+  textDark: '#090808',        // основний текст макета
+  accentBrown: '#5A4C3D',     // вибрана вкладка, кнопка, картка
 };
 
 export const FONTS = {

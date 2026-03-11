@@ -1,14 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Ionicons';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import HomeScreen from '../screens/HomeScreen';
 import GoalsScreen from '../screens/GoalsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import InboxScreen from '../screens/InboxScreen';
-import { useModal } from '../context/ModalContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
@@ -16,64 +13,13 @@ import { COLORS, SPACING, FONTS } from '../styles/theme';
 const Tab = createBottomTabNavigator();
 
 const TabBarBackground = () => (
-  <View style={[styles.tabBgWrapper, { backgroundColor: '#F8F5E9' }]} pointerEvents="none">
-    <Svg width="100%" height="100%">
-      <Defs>
-        <SvgLinearGradient id="tabGrad" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#F8F5E9" stopOpacity="1" />
-          <Stop offset="1" stopColor="#F8F5E9" stopOpacity="1" />
-        </SvgLinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#tabGrad)" />
-    </Svg>
-  </View>
-);
-
-const TabBarBackgroundWhite = () => (
-  <View style={styles.tabBgWrapper} pointerEvents="none">
-    <Svg width="100%" height="100%">
-      <Defs>
-        <SvgLinearGradient id="tabGradWhite" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#E8E0D5" stopOpacity="1" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
-        </SvgLinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#tabGradWhite)" />
-    </Svg>
-  </View>
+  <View style={[styles.tabBgWrapper, { backgroundColor: COLORS.panel }]} pointerEvents="none" />
 );
 
 const AppNavigator = () => {
-  const { openAddModal, isAddModalVisible } = useModal();
   const { language } = useLanguage();
-  
-  const CustomTabBarButton = ({ onPress, ...props }) => {
-    const handlePress = () => {
-      console.log('🔵 CustomTabBarButton pressed');
-      console.log('🔵 Calling openAddModal');
-      openAddModal();
-    };
+  const customTabBar = useMemo(() => (props) => <BottomTabBar {...props} />, []);
 
-    return (
-      <TouchableOpacity
-        style={styles.customButton}
-        onPress={handlePress}
-        activeOpacity={0.8}
-        {...props}
-      >
-        <View style={styles.plusInner}>
-          <Icon name="add" size={20} color={COLORS.text} />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-  
-  const customTabBar = useMemo(() => {
-    return (props) => {
-      return <BottomTabBar {...props} />;
-    };
-  }, []);
-  
   return (
       <Tab.Navigator
       initialRouteName="Home"
@@ -83,17 +29,17 @@ const AppNavigator = () => {
         tabBarStyle: {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
-          height: 74,
-          paddingBottom: 10,
-          paddingTop: 10,
+          height: 80,
+          paddingBottom: 12,
+          paddingTop: 12,
           elevation: 0,
-          borderTopLeftRadius: 48,
-          borderTopRightRadius: 48,
+          borderTopLeftRadius: 40,  // 50% от высоты панели (80)
+          borderTopRightRadius: 40,
           overflow: 'hidden',
         },
         tabBarBackground: () => <TabBarBackground />,
-        tabBarActiveTintColor: COLORS.text,
-        tabBarInactiveTintColor: COLORS.text,
+        tabBarActiveTintColor: COLORS.textDark,
+        tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarLabelStyle: {
           fontSize: FONTS.sizes.sm,
           fontWeight: '500',
@@ -106,11 +52,30 @@ const AppNavigator = () => {
         name="Inbox"
         component={InboxScreen}
         options={{
-          tabBarLabel: getTranslation('inbox', language),
-          tabBarIcon: ({ focused, color }) => (
+          tabBarLabel: () => (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: 'Montserrat-Medium',
+                fontWeight: '500',
+                marginTop: 4,
+                color: '#000000',
+                letterSpacing: 0,
+              }}
+            >
+              {getTranslation('inbox', language)}
+            </Text>
+          ),
+          tabBarIcon: () => (
             <Image
               source={require('../assets/icons/24e9ba9bffd9a673b4a6a0f17a886d7d5e4b0aea.png')}
-              style={{ width: 24, height: 24, tintColor: color }}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 0,
+                opacity: 1,
+                tintColor: '#000000',
+              }}
               resizeMode="contain"
             />
           ),
@@ -120,42 +85,53 @@ const AppNavigator = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarLabel: getTranslation('home', language),
+          tabBarLabel: ({ focused }) => (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: 'Montserrat-Medium',
+                fontWeight: '500',
+                marginTop: 4,
+                color: '#090808',
+                letterSpacing: 0,
+                textDecorationLine: focused ? 'underline' : 'none',
+              }}
+            >
+              {getTranslation('home', language)}
+            </Text>
+          ),
           tabBarBackground: () => <TabBarBackground />,
-          tabBarIcon: ({ focused, color }) => (
+          tabBarIcon: () => (
             <Image
               source={require('../assets/icons/9e70623cbed2c3b364216a3f594eec13751b4b0f.png')}
-              style={{ width: 24, height: 24, tintColor: color }}
+              style={{ width: 24, height: 24, borderRadius: 0, opacity: 1, tintColor: '#090808' }}
               resizeMode="contain"
             />
           ),
         }}
       />
       <Tab.Screen
-        name="Add"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: '',
-          tabBarButton: (props) => <CustomTabBarButton {...props} />,
-        }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            console.log('🟢 Tab press event fired');
-            e.preventDefault();
-            console.log('🟢 Calling openAddModal from tabPress');
-            openAddModal();
-          },
-        })}
-      />
-      <Tab.Screen
         name="Goals"
         component={GoalsScreen}
         options={{
-          tabBarLabel: getTranslation('goals', language),
-          tabBarIcon: ({ focused, color }) => (
+          tabBarLabel: () => (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: 'Montserrat-Medium',
+                fontWeight: '500',
+                marginTop: 4,
+                color: '#090808',
+                letterSpacing: 0,
+              }}
+            >
+              {getTranslation('goals', language)}
+            </Text>
+          ),
+          tabBarIcon: () => (
             <Image
               source={require('../assets/icons/151f1a456a7563e9ac628c21059079c47ecfda19.png')}
-              style={{ width: 24, height: 24, tintColor: color }}
+              style={{ width: 24, height: 24, borderRadius: 0, opacity: 1, tintColor: '#090808' }}
               resizeMode="contain"
             />
           ),
@@ -165,11 +141,24 @@ const AppNavigator = () => {
         name="Analytics"
         component={AnalyticsScreen}
         options={{
-          tabBarLabel: getTranslation('analytics', language),
-          tabBarIcon: ({ focused, color }) => (
+          tabBarLabel: () => (
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: 'Montserrat-Medium',
+                fontWeight: '500',
+                marginTop: 4,
+                color: '#090808',
+                letterSpacing: 0,
+              }}
+            >
+              {getTranslation('analytics', language)}
+            </Text>
+          ),
+          tabBarIcon: () => (
             <Image
               source={require('../assets/icons/d639ce3cb8b74bfcb16ca887f2dae89cd8cdfdbf.png')}
-              style={{ width: 24, height: 24, tintColor: color }}
+              style={{ width: 26, height: 24, borderRadius: 0, opacity: 1, tintColor: '#090808' }}
               resizeMode="contain"
             />
           ),
@@ -182,35 +171,9 @@ const AppNavigator = () => {
 const styles = StyleSheet.create({
   tabBgWrapper: {
     ...StyleSheet.absoluteFillObject,
-    borderTopLeftRadius: 48,
-    borderTopRightRadius: 48,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
     overflow: 'hidden',
-  },
-  customButton: {
-    top: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primaryDark,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  plusInner: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 
