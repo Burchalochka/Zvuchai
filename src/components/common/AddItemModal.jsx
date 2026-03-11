@@ -13,7 +13,12 @@ import {
   PermissionsAndroid,
   Alert,
 } from 'react-native';
-import Voice from '@react-native-voice/voice';
+let Voice;
+try {
+  Voice = require('@react-native-voice/voice').default;
+} catch {
+  Voice = null;
+}
 import AudioRecorderPlayer from 'react-native-nitro-sound';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../styles/theme';
@@ -174,7 +179,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   }, [audioRecorderPlayer]);
 
   useEffect(() => {
-    if (Voice) {
+    if (Voice && typeof Voice.onSpeechResults !== 'undefined') {
       try {
         Voice.onSpeechResults = handleSpeechResults;
         Voice.onSpeechError = handleSpeechError;
@@ -185,7 +190,11 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     }
     return () => {
       if (Voice) {
-        Voice.destroy().then(() => Voice.removeAllListeners?.()).catch(() => {});
+        try {
+          Voice.destroy().then(() => Voice.removeAllListeners?.()).catch(() => {});
+        } catch (e) {
+          // ignore
+        }
       }
       audioRecorderPlayer.stopRecorder().catch(() => {});
       audioRecorderPlayer.removeRecordBackListener();
@@ -594,7 +603,9 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
 
       if (Voice) {
         try {
-          await Voice.start('uk-UA');
+          await Promise.resolve(Voice.start('uk-UA')).catch(() => {
+            setIsRecording(false);
+          });
         } catch (error) {
           setIsRecording(false);
         }
