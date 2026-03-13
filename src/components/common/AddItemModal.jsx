@@ -11,14 +11,21 @@ import {
   Keyboard,
   Platform,
   PermissionsAndroid,
+  Alert,
 } from 'react-native';
-import Voice from '@react-native-voice/voice';
+let Voice;
+try {
+  Voice = require('@react-native-voice/voice').default;
+} catch {
+  Voice = null;
+}
 import AudioRecorderPlayer from 'react-native-nitro-sound';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../styles/theme';
 import { useTasks } from '../../context/TasksContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getTranslation } from '../../utils/translations';
+import { createTask as createTaskWithBackend } from '../../services/TaskCreationService';
 
 const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const { tasks, habits, goals, addGoal } = useTasks();
@@ -104,7 +111,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const stopVoiceInput = useCallback(
     async (skipVoiceStop = false) => {
       const durationSnapshot = recordingDuration;
-      if (!skipVoiceStop) {
+      if (!skipVoiceStop && Voice) {
         try {
           await Voice.stop();
         } catch (error) {
@@ -172,11 +179,23 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   }, [audioRecorderPlayer]);
 
   useEffect(() => {
-    Voice.onSpeechResults = handleSpeechResults;
-    Voice.onSpeechError = handleSpeechError;
-    Voice.onSpeechEnd = handleSpeechEnd;
+    if (Voice && typeof Voice.onSpeechResults !== 'undefined') {
+      try {
+        Voice.onSpeechResults = handleSpeechResults;
+        Voice.onSpeechError = handleSpeechError;
+        Voice.onSpeechEnd = handleSpeechEnd;
+      } catch (e) {
+        // Voice native module may be unavailable
+      }
+    }
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
+      if (Voice) {
+        try {
+          Voice.destroy().then(() => Voice.removeAllListeners?.()).catch(() => {});
+        } catch (e) {
+          // ignore
+        }
+      }
       audioRecorderPlayer.stopRecorder().catch(() => {});
       audioRecorderPlayer.removeRecordBackListener();
       stopPlayback();
@@ -396,6 +415,30 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
   };
 
+  const doCleanupAndClose = async () => {
+    if (isRecording) {
+      await stopVoiceInput(true);
+    }
+    await stopPlayback();
+    setStep('type');
+    setItemType(null);
+    setTitle('');
+    setDescription('');
+    setStartTime('09:00');
+    setEndTime('10:00');
+    setTargetValue('');
+    setCurrentProgress('');
+    setDeadline('');
+    setIsRecording(false);
+    setActiveInput(null);
+    setSelectedColor('#E8E0D5');
+    setTitleAudio(null);
+    setDescriptionAudio(null);
+    setIsPlayingTitle(false);
+    setIsPlayingDescription(false);
+    onClose();
+  };
+
   const handleAdd = async () => {
     if (!title.trim()) return;
 
@@ -417,7 +460,28 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       };
 
       if (itemType === 'task') {
-        onAddTask(item);
+        try {
+          const result = await createTaskWithBackend(item);
+          onAddTask(result);
+        } catch (err) {
+          if (err?.code === 'DEAD_ZONE_CONFLICT') {
+            const zoneName = err.zoneName ?? '';
+            Alert.alert(
+              getTranslation('deadZoneTitle', language) || 'Мертва зона',
+              `Це час вашої мертвої зони (${zoneName}). Точно поставити задачу?`,
+              [
+                { text: getTranslation('changeTime', language) || 'Змінити час', onPress: () => startVoiceInput('title') },
+                { text: getTranslation('confirm', language) || 'Підтвердити', onPress: async () => {
+                  const result = await createTaskWithBackend(item, { force: true });
+                  onAddTask(result);
+                  await doCleanupAndClose();
+                }},
+              ]
+            );
+            return;
+          }
+          throw err;
+        }
       } else if (itemType === 'habit') {
         onAddHabit(item);
       } else if (itemType === 'goal') {
@@ -443,7 +507,28 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       };
 
       if (itemType === 'task') {
-        onAddTask(item);
+        try {
+          const result = await createTaskWithBackend(item);
+          onAddTask(result);
+        } catch (err) {
+          if (err?.code === 'DEAD_ZONE_CONFLICT') {
+            const zoneName = err.zoneName ?? '';
+            Alert.alert(
+              getTranslation('deadZoneTitle', language) || 'Мертва зона',
+              `Це час вашої мертвої зони (${zoneName}). Точно поставити задачу?`,
+              [
+                { text: getTranslation('changeTime', language) || 'Змінити час', onPress: () => startVoiceInput('title') },
+                { text: getTranslation('confirm', language) || 'Підтвердити', onPress: async () => {
+                  const result = await createTaskWithBackend(item, { force: true });
+                  onAddTask(result);
+                  await doCleanupAndClose();
+                }},
+              ]
+            );
+            return;
+          }
+          throw err;
+        }
       } else if (itemType === 'habit') {
         onAddHabit(item);
       } else if (itemType === 'goal') {
@@ -456,27 +541,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       }
     }
 
-    if (isRecording) {
-      await stopVoiceInput(true);
-    }
-    await stopPlayback();
-    setStep('type');
-    setItemType(null);
-    setTitle('');
-    setDescription('');
-    setStartTime('09:00');
-    setEndTime('10:00');
-    setTargetValue('');
-    setCurrentProgress('');
-    setDeadline('');
-    setIsRecording(false);
-    setActiveInput(null);
-    setSelectedColor('#E8E0D5');
-    setTitleAudio(null);
-    setDescriptionAudio(null);
-    setIsPlayingTitle(false);
-    setIsPlayingDescription(false);
-    onClose();
+    await doCleanupAndClose();
   };
 
   const handleClose = async () => {
@@ -536,10 +601,14 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         }),
       ]).start();
 
-      try {
-      await Voice.start('uk-UA');
-      } catch (error) {
-        setIsRecording(false);
+      if (Voice) {
+        try {
+          await Promise.resolve(Voice.start('uk-UA')).catch(() => {
+            setIsRecording(false);
+          });
+        } catch (error) {
+          setIsRecording(false);
+        }
       }
 
       try {

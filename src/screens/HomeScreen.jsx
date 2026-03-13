@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -11,6 +11,7 @@ import { useSelectedDate } from '../context/SelectedDateContext';
 import { useModal } from '../context/ModalContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
+import { getTasksForDate } from '../services/DataLayerService';
 
 const TAB_BAR_HEIGHT = 74;
 
@@ -27,10 +28,19 @@ const HomeScreen = () => {
   const { openAddModal } = useModal();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('tasks');
+  const [selectedItemId, setSelectedItemId] = useState(null);
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const [totalContentHeight, setTotalContentHeight] = useState(0);
   const isScrollEnabled = totalContentHeight > scrollViewportHeight + 1;
   const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + SPACING.lg;
+
+  useEffect(() => {
+    setSelectedItemId(null);
+  }, [activeTab]);
+
+  useEffect(() => {
+    getTasksForDate(selectedDate);
+  }, [selectedDate]);
 
   const selectedKey = toDateKey(selectedDate);
   const tasksForDay = (tasks || []).filter((t) => t && toDateKey(t.createdAt) === selectedKey);
@@ -129,11 +139,17 @@ const HomeScreen = () => {
           {hasItems ? (
             <View style={styles.tasksList}>
               {currentItems.map((item) => (
-                <TaskTimelineItem
+                <TouchableOpacity
                   key={item.id}
-                  task={item}
-                  onToggleComplete={activeTab === 'tasks' ? toggleTaskComplete : toggleHabitComplete}
-                />
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedItemId((id) => (id === item.id ? null : item.id))}
+                >
+                  <TaskTimelineItem
+                    task={item}
+                    selected={selectedItemId === item.id}
+                    onToggleComplete={activeTab === 'tasks' ? toggleTaskComplete : toggleHabitComplete}
+                  />
+                </TouchableOpacity>
               ))}
             </View>
           ) : (
@@ -168,7 +184,7 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF9F9',
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
@@ -179,9 +195,9 @@ const styles = StyleSheet.create({
   statsCard: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#F8F5E9',
+    backgroundColor: COLORS.panelLight,
     borderWidth: 1,
-    borderColor: '#514134',
+    borderColor: COLORS.primaryDark,
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     paddingVertical: SPACING.lg,
@@ -207,7 +223,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: FONTS.sizes.md,
-    color: '#514134',
+    color: COLORS.primaryDark,
     marginTop: 2,
     textAlign: 'center',
     fontWeight: 'normal',
@@ -230,7 +246,7 @@ const styles = StyleSheet.create({
   },
   whiteSection: {
     flexGrow: 1,
-    backgroundColor: '#FAF9F9',
+    backgroundColor: COLORS.background,
     paddingHorizontal: 0,
     paddingTop: 0,
     paddingBottom: SPACING.lg,
@@ -240,7 +256,7 @@ const styles = StyleSheet.create({
     minHeight: 200,
   },
   tabsPanel: {
-    backgroundColor: '#F8F5E9',
+    backgroundColor: COLORS.panelLight,
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     borderBottomLeftRadius: 0,
@@ -263,7 +279,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '100%',
-    backgroundColor: '#F8F5E9',
+    backgroundColor: COLORS.panelLight,
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
   },
@@ -272,7 +288,7 @@ const styles = StyleSheet.create({
     top: 0,
     height: '100%',
     width: '50%',
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: COLORS.accentBrown,
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
   },
@@ -297,7 +313,7 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     fontSize: FONTS.sizes.lg,
-    color: '#000000',
+    color: COLORS.accentBrown,
     fontWeight: '500',
     fontFamily: 'Montserrat-Medium',
   },
@@ -384,10 +400,10 @@ const styles = StyleSheet.create({
   },
   centerActionPill: {
     flexDirection: 'row',
-    backgroundColor: '#F8F5E9',
+    backgroundColor: COLORS.panelLight,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#514134',
+    borderColor: COLORS.primaryDark,
     overflow: 'hidden',
   },
   centerActionSegment: {

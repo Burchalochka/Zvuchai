@@ -8,15 +8,28 @@ const KEYS = {
   preferences: 'user_preferences',
 } as const;
 
+const memoryFallback = (() => {
+  const data: Record<string, string> = {};
+  return {
+    getString: (key: string): string | undefined => data[key],
+    set: (key: string, value: string): void => { data[key] = value; },
+  };
+})();
+
+const store =
+  storage && typeof storage.getString === 'function'
+    ? storage
+    : memoryFallback;
+
 // ─── Generic helpers ──────────────────────────────────────────────────────────
 
 function readAll<T>(key: string): T[] {
-  const raw = storage.getString(key);
+  const raw = store.getString(key);
   return raw ? (JSON.parse(raw) as T[]) : [];
 }
 
 function writeAll<T>(key: string, items: T[]): void {
-  storage.set(key, JSON.stringify(items));
+  store.set(key, JSON.stringify(items));
 }
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
@@ -44,10 +57,10 @@ export const GoalStorage = {
 
 export const PreferencesStorage = {
   get: (): UserPreferences | null => {
-    const raw = storage.getString(KEYS.preferences);
+    const raw = store.getString(KEYS.preferences);
     return raw ? (JSON.parse(raw) as UserPreferences) : null;
   },
   save: (prefs: UserPreferences): void => {
-    storage.set(KEYS.preferences, JSON.stringify(prefs));
+    store.set(KEYS.preferences, JSON.stringify(prefs));
   },
 };

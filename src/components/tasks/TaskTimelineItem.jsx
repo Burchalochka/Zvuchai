@@ -5,7 +5,7 @@ import { COLORS, SPACING, FONTS } from '../../styles/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { getTranslation } from '../../utils/translations';
 
-const TaskTimelineItem = ({ task, onToggleComplete }) => {
+const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
   const { language } = useLanguage();
   
   const parseTime = (timeStr) => {
@@ -45,34 +45,34 @@ const TaskTimelineItem = ({ task, onToggleComplete }) => {
       </View>
       <View style={styles.contentColumn}>
         <View style={styles.connectorLine} />
-        <View style={[styles.taskCard, task.completed && styles.taskCardCompleted]}>
+        <View style={[styles.taskCard, task.completed && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
           <View style={styles.taskContent}>
             <View style={styles.taskLeft}>
-              <View style={[styles.taskIconContainer, task.completed && styles.taskIconContainerCompleted]}>
+              <View style={[styles.taskIconContainer, task.completed && styles.taskIconContainerCompleted, selected && styles.taskIconContainerSelected]}>
                 <Icon 
                   name="people" 
                   size={18} 
-                  color={task.completed ? COLORS.primaryStrong : COLORS.textSecondary} 
+                  color={selected ? '#FFFFFF' : (task.completed ? COLORS.primaryStrong : COLORS.textSecondary)} 
                 />
               </View>
               <View style={styles.taskInfo}>
-                <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted]}>
+                <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}>
                   {task.title}
                 </Text>
-                <Text style={styles.taskTime}>
+                <Text style={[styles.taskTime, selected && styles.taskTimeSelected]}>
                   {formatTime(task.startTime)}-{formatTime(task.endTime)} ({duration})
                 </Text>
               </View>
             </View>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={() => onToggleComplete(task.id)}
+              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id); }}
               activeOpacity={0.7}
             >
               {task.completed ? (
-                <Icon name="checkmark-circle" size={24} color={COLORS.primaryDark} />
+                <Icon name="checkmark-circle" size={24} color={selected ? '#FFFFFF' : COLORS.primaryDark} />
               ) : (
-                <Icon name="ellipse-outline" size={24} color={COLORS.textSecondary} />
+                <Icon name="ellipse-outline" size={24} color={selected ? '#FFFFFF' : COLORS.textSecondary} />
               )}
             </TouchableOpacity>
           </View>
@@ -118,6 +118,10 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.md,
     marginBottom: SPACING.sm,
   },
+  taskCardSelected: {
+    backgroundColor: COLORS.accentBrown,
+    opacity: 1,
+  },
   taskCardCompleted: {
     opacity: 0.6,
   },
@@ -143,6 +147,9 @@ const styles = StyleSheet.create({
   taskIconContainerCompleted: {
     backgroundColor: COLORS.primaryStrong,
   },
+  taskIconContainerSelected: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
   taskInfo: {
     flex: 1,
   },
@@ -157,10 +164,16 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     opacity: 0.7,
   },
+  taskTitleSelected: {
+    color: '#FFFFFF',
+  },
   taskTime: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
     fontFamily: 'Montserrat-Regular',
+  },
+  taskTimeSelected: {
+    color: 'rgba(255,255,255,0.9)',
   },
   checkbox: {
     marginLeft: SPACING.sm,
