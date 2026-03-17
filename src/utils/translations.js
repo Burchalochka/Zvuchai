@@ -123,6 +123,9 @@ export const translations = {
     passwordPlaceholder: 'Введіть пароль',
     register: 'Зареєструватись',
     alreadyHaveAccount: 'У вас вже є акаунт?',
+
+    deadZoneConflictMessage: 'Ця задача потрапляє на ваш час відпочинку',
+    taskOverlapMessage: 'Цей час вже зайнятий іншою задачею',
   },
   en: {
     inbox: 'Inbox',
@@ -248,6 +251,9 @@ export const translations = {
     passwordPlaceholder: 'Enter password',
     register: 'Register',
     alreadyHaveAccount: 'Already have an account?',
+
+    deadZoneConflictMessage: 'This task falls within your rest time',
+    taskOverlapMessage: 'This time slot is already taken by another task',
   },
 };
 

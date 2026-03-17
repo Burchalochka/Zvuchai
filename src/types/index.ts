@@ -1,7 +1,7 @@
 // ─── Shared ──────────────────────────────────────────────────────────────────
 
 export type ItemType = 'task' | 'habit' | 'goal';
-export type ItemStatus = 'pending' | 'completed' | 'skipped';
+export type ItemStatus = 'pending' | 'completed' | 'skipped' | 'requires_review';
 export type Priority = 'low' | 'medium' | 'high';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
