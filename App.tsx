@@ -1,28 +1,51 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+
 import AppNavigator from './src/navigation/AppNavigator';
 import SplashScreen from './src/screens/SplashScreen';
 import LanguageSelectionScreen from './src/screens/LanguageSelectionScreen';
-import { TasksProvider } from './src/context/TasksContext';
+import { TasksProvider, useTasks } from './src/context/TasksContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ModalProvider, useModal } from './src/context/ModalContext';
 import { SelectedDateProvider } from './src/context/SelectedDateContext';
 import AddItemModal from './src/components/common/AddItemModal';
-import { useTasks } from './src/context/TasksContext';
 import { COLORS } from './src/styles/theme';
 
-const navigationRef = createNavigationContainerRef();
-
+const navigationRef = createNavigationContainerRef<any>();
 
 const AppContent = () => {
   const { isAddModalVisible, closeAddModal, openAddModal } = useModal();
   const { addTask, addHabit } = useTasks();
   const insets = useSafeAreaInsets();
+
   const [showSplash, setShowSplash] = useState(true);
   const [showLanguageSelection, setShowLanguageSelection] = useState(false);
   const [fabMode, setFabMode] = useState('plus');
+  const [currentRouteName, setCurrentRouteName] = useState('');
+
+  useEffect(() => {
+    const updateRoute = () => {
+      const route = navigationRef.getCurrentRoute();
+      setCurrentRouteName(route?.name ?? '');
+    };
+
+    updateRoute();
+
+    const unsubscribe = navigationRef.addListener('state', updateRoute);
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleSplashFinish = () => {
     setShowSplash(false);
@@ -38,40 +61,74 @@ const AppContent = () => {
   }
 
   if (showLanguageSelection) {
-    return <LanguageSelectionScreen onLanguageSelected={handleLanguageSelected} />;
+    return (
+      <LanguageSelectionScreen onLanguageSelected={handleLanguageSelected} />
+    );
   }
 
   return (
     <>
       <View style={styles.container}>
         <AppNavigator />
-        <View style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]} pointerEvents="box-none">
-          <View style={styles.fabPanel}>
-            <TouchableOpacity
-              style={[styles.fabSegment, styles.fabSegmentLeft, fabMode === 'plus' ? styles.fabSegmentActive : null]}
-              onPress={() => { setFabMode('plus'); openAddModal(); }}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={fabMode === 'plus' ? require('./src/assets/icons/Group-5.png') : require('./src/assets/icons/Group-6.png')}
-                style={styles.fabIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.fabSegment, styles.fabSegmentRight, fabMode === 'voice' ? styles.fabSegmentActive : null]}
-              onPress={() => setFabMode('voice')}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={fabMode === 'voice' ? require('./src/assets/icons/Group-8.png') : require('./src/assets/icons/Group-7.png')}
-                style={styles.fabIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+
+        {currentRouteName !== 'Microphone' && (
+          <View
+            style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
+            pointerEvents="box-none"
+          >
+            <View style={styles.fabPanel}>
+              <TouchableOpacity
+                style={[
+                  styles.fabSegment,
+                  styles.fabSegmentLeft,
+                  fabMode === 'plus' ? styles.fabSegmentActive : null,
+                ]}
+                onPress={() => {
+                  setFabMode('plus');
+                  openAddModal();
+                }}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={
+                    fabMode === 'plus'
+                      ? require('./src/assets/icons/Group-5.png')
+                      : require('./src/assets/icons/Group-6.png')
+                  }
+                  style={styles.fabIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.fabSegment,
+                  styles.fabSegmentRight,
+                  fabMode === 'voice' ? styles.fabSegmentActive : null,
+                ]}
+                onPress={() => {
+                  setFabMode('voice');
+                  if (navigationRef.isReady()) {
+                    navigationRef.navigate('Microphone');
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={
+                    fabMode === 'voice'
+                      ? require('./src/assets/icons/Group-8.png')
+                      : require('./src/assets/icons/Group-7.png')
+                  }
+                  style={styles.fabIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </View>
+
       <AddItemModal
         visible={isAddModalVisible}
         onClose={closeAddModal}
@@ -90,12 +147,10 @@ const App = () => {
       background: COLORS.background,
     },
   };
+
   return (
     <SafeAreaProvider style={styles.safeArea}>
-      <NavigationContainer
-        ref={navigationRef}
-        theme={navTheme}
-      >
+      <NavigationContainer ref={navigationRef} theme={navTheme}>
         <LanguageProvider>
           <TasksProvider>
             <SelectedDateProvider>

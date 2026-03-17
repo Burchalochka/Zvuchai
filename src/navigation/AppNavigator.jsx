@@ -1,3 +1,5 @@
+import MicrophoneScreen from '../screens/MicrophoneScreen';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -11,17 +13,21 @@ import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
 const TabBarBackground = () => (
-  <View style={[styles.tabBgWrapper, { backgroundColor: COLORS.panel }]} pointerEvents="none" />
+  <View
+    style={[styles.tabBgWrapper, { backgroundColor: COLORS.panel }]}
+    pointerEvents="none"
+  />
 );
 
 const AppNavigator = () => {
   const { language } = useLanguage();
-  const customTabBar = useMemo(() => (props) => <BottomTabBar {...props} />, []);
+  const customTabBar = useMemo(() => props => <BottomTabBar {...props} />, []);
 
   return (
-      <Tab.Navigator
+    <Tab.Navigator
       initialRouteName="Home"
       tabBar={customTabBar}
       screenOptions={{
@@ -33,7 +39,7 @@ const AppNavigator = () => {
           paddingBottom: 12,
           paddingTop: 12,
           elevation: 0,
-          borderTopLeftRadius: 40,  // 50% от высоты панели (80)
+          borderTopLeftRadius: 40, // 50% от высоты панели (80)
           borderTopRightRadius: 40,
           overflow: 'hidden',
         },
@@ -104,7 +110,13 @@ const AppNavigator = () => {
           tabBarIcon: () => (
             <Image
               source={require('../assets/icons/9e70623cbed2c3b364216a3f594eec13751b4b0f.png')}
-              style={{ width: 24, height: 24, borderRadius: 0, opacity: 1, tintColor: '#090808' }}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 0,
+                opacity: 1,
+                tintColor: '#090808',
+              }}
               resizeMode="contain"
             />
           ),
@@ -131,7 +143,13 @@ const AppNavigator = () => {
           tabBarIcon: () => (
             <Image
               source={require('../assets/icons/151f1a456a7563e9ac628c21059079c47ecfda19.png')}
-              style={{ width: 24, height: 24, borderRadius: 0, opacity: 1, tintColor: '#090808' }}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 0,
+                opacity: 1,
+                tintColor: '#090808',
+              }}
               resizeMode="contain"
             />
           ),
@@ -158,7 +176,13 @@ const AppNavigator = () => {
           tabBarIcon: () => (
             <Image
               source={require('../assets/icons/d639ce3cb8b74bfcb16ca887f2dae89cd8cdfdbf.png')}
-              style={{ width: 26, height: 24, borderRadius: 0, opacity: 1, tintColor: '#090808' }}
+              style={{
+                width: 26,
+                height: 24,
+                borderRadius: 0,
+                opacity: 1,
+                tintColor: '#090808',
+              }}
               resizeMode="contain"
             />
           ),
@@ -177,4 +201,13 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AppNavigator;
+const RootNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={AppNavigator} />
+      <Stack.Screen name="Microphone" component={MicrophoneScreen} />
+    </Stack.Navigator>
+  );
+};
+
+export default RootNavigator;
