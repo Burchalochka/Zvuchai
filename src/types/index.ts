@@ -27,6 +27,7 @@ export interface BaseItem {
   difficulty: Difficulty;
   estimatedDuration: number | null;
   dueDate: string | null;        // 'YYYY-MM-DD'
+  deadline: string | null;       // 'YYYY-MM-DD'
   tags: string[];
   reminder: Reminder;
   linkedGoalId: string | null;

@@ -12,6 +12,7 @@ import { useModal } from '../context/ModalContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { getTasksForDate } from '../services/DataLayerService';
+import { getDayStats } from '../services/DaySummaryService';
 
 const TAB_BAR_HEIGHT = 74;
 
@@ -65,6 +66,8 @@ const HomeScreen = () => {
   const currentItems = activeTab === 'tasks' ? sortedTasks : sortedHabits;
   const hasItems = currentItems.length > 0;
 
+  const stats = getDayStats(tasksForDay);
+
   const taskCountsByDate = (tasks || []).reduce((acc, task) => {
     const key = toDateKey(task && task.createdAt);
     if (!key) return acc;
@@ -88,23 +91,23 @@ const HomeScreen = () => {
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>
-              0
-              <Text style={styles.statNumberMinor}>/0</Text>
+              {stats.completedCount}
+              <Text style={styles.statNumberMinor}>/{stats.totalCount}</Text>
             </Text>
             <Text style={styles.statLabel}>{getTranslation('completed', language)}</Text>
           </View>
           <View style={styles.statItem}>
             <View style={styles.flameContainer}>
               <Text style={styles.statNumber}>0</Text>
-              <Image 
-                source={require('../assets/icons/5e7dd1907f8677660224a5cc413fab5fbf1ba689.png')} 
+              <Image
+                source={require('../assets/icons/5e7dd1907f8677660224a5cc413fab5fbf1ba689.png')}
                 style={styles.flameIcon}
                 resizeMode="contain"
               />
             </View>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>0%</Text>
+            <Text style={styles.statNumber}>{stats.completionRate}%</Text>
             <Text style={styles.statLabel}>{getTranslation('progress', language)}</Text>
           </View>
         </View>

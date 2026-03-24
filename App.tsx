@@ -19,6 +19,7 @@ import { ModalProvider, useModal } from './src/context/ModalContext';
 import { SelectedDateProvider } from './src/context/SelectedDateContext';
 import AddItemModal from './src/components/common/AddItemModal';
 import { COLORS } from './src/styles/theme';
+import { DEV_CONFIG } from './src/config/devConfig';
 
 const navigationRef = createNavigationContainerRef<any>();
 
@@ -27,7 +28,7 @@ const AppContent = () => {
   const { addTask, addHabit } = useTasks();
   const insets = useSafeAreaInsets();
 
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(!DEV_CONFIG.SKIP_ONBOARDING);
   const [showLanguageSelection, setShowLanguageSelection] = useState(false);
   const [fabMode, setFabMode] = useState('plus');
   const [currentRouteName, setCurrentRouteName] = useState('');
