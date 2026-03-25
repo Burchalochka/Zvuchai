@@ -95,7 +95,8 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
     onRescheduleRequest(task);
   };
 
-  const isCompleted = task.completed;
+  const isCompleted = task.status === 'completed';
+  const firstTag = Array.isArray(task.tags) && task.tags.length > 0 ? task.tags[0] : null;
 
   return (
     <View style={styles.wrapper}>
@@ -146,11 +147,9 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
           ) : null}
         </View>
 
-        {task.tag ? (
-          <View style={[styles.tag, { backgroundColor: task.tagColor || '#E8E0FF' }]}>
-            <Text style={[styles.tagText, { color: task.tagTextColor || '#7C4DFF' }]}>
-              {task.tag}
-            </Text>
+        {firstTag ? (
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>{firstTag}</Text>
           </View>
         ) : null}
       </Animated.View>

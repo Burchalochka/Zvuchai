@@ -18,9 +18,13 @@ import { getDayStats } from '../services/DaySummaryService';
 const TAB_BAR_HEIGHT = 74;
 
 const toDateKey = (d) => {
-  if (!d) return '';
+  if (!d) return null;
   const x = new Date(d);
-  return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+  if (isNaN(x.getTime())) return null;
+  const y = x.getFullYear();
+  const m = String(x.getMonth() + 1).padStart(2, '0');
+  const day = String(x.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
 const HomeScreen = () => {
@@ -46,8 +50,8 @@ const HomeScreen = () => {
   }, [selectedDate]);
 
   const selectedKey = toDateKey(selectedDate);
-  const tasksForDay = (tasks || []).filter((t) => t && toDateKey(t.createdAt) === selectedKey);
-  const habitsForDay = (habits || []).filter((h) => h && toDateKey(h.createdAt) === selectedKey);
+  const tasksForDay = (tasks || []).filter((t) => t && t.date === selectedKey);
+  const habitsForDay = (habits || []).filter((h) => h && h.date === selectedKey);
 
   const sortedTasks = [...tasksForDay].sort((a, b) => {
     const aStr = (a && a.startTime) ? String(a.startTime) : '09:00';
@@ -71,7 +75,7 @@ const HomeScreen = () => {
   const stats = getDayStats(tasksForDay);
 
   const taskCountsByDate = (tasks || []).reduce((acc, task) => {
-    const key = toDateKey(task && task.createdAt);
+    const key = task && task.date;
     if (!key) return acc;
     acc[key] = (acc[key] || 0) + 1;
     return acc;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,67 +8,28 @@ import {
   Modal,
   StatusBar,
   Platform,
-  BlurView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SwipeableTaskItem from '../components/tasks/SwipeableTaskItem';
 import DeleteTaskModal from '../components/modals/DeleteTaskModal';
 import RescheduleTaskModal from '../components/modals/RescheduleTaskModal';
 import { FONTS, SPACING, COLORS } from '../styles/theme';
+import { useTasks } from '../context/TasksContext';
+import { useSelectedDate } from '../context/SelectedDateContext';
+import { getDayStats } from '../services/DaySummaryService';
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_TASKS = [
-  {
-    id: '1',
-    title: 'Ранкова медитація',
-    startTime: '07:00',
-    endTime: '07:30',
-    tag: "Здоров'я",
-    tagColor: '#EDE7FF',
-    tagTextColor: '#7C4DFF',
-    completed: true,
-  },
-  {
-    id: '2',
-    title: 'Зустріч з клієнтом',
-    startTime: '14:00',
-    endTime: '15:00',
-    tag: 'Робота',
-    tagColor: '#E0F7FA',
-    tagTextColor: '#0097A7',
-    completed: true,
-  },
-  {
-    id: '3',
-    title: 'Прочитати книгу',
-    startTime: '18:15',
-    endTime: '19:00',
-    tag: 'Саморозвиток',
-    tagColor: '#FCE4EC',
-    tagTextColor: '#E91E63',
-    completed: true,
-  },
-  {
-    id: '4',
-    title: 'Тренування',
-    startTime: undefined,
-    endTime: undefined,
-    tag: undefined,
-    completed: false,
-  },
-  {
-    id: '5',
-    title: 'Купити продукти',
-    startTime: undefined,
-    endTime: undefined,
-    tag: 'Побут',
-    tagColor: '#FFF9C4',
-    tagTextColor: '#F9A825',
-    completed: false,
-  },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const today = new Date();
+const toDateKey = (d) => {
+  if (!d) return null;
+  const date = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(date.getTime())) return null;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const formatDate = (d) => {
   const day = d.getDate();
   const months = [
@@ -79,43 +40,50 @@ const formatDate = (d) => {
   return `${day} ${months[d.getMonth()]} • ${weekdays[d.getDay()]}`;
 };
 
+const formatMinutes = (totalMinutes) => {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}хв`;
+  return m > 0 ? `${h}г ${m}хв` : `${h}г`;
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
-  const [tasks, setTasks] = useState(MOCK_TASKS);
+  const { tasks: allTasks } = useTasks();
+  const { selectedDate } = useSelectedDate();
+
+  const [localTasks, setLocalTasks] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
 
-  const completedCount = tasks.filter((t) => t.completed).length;
-  const totalCount = tasks.length;
-  const tags = [...new Set(tasks.map((t) => t.tag).filter(Boolean))];
+  // Sync local list when context or selected date changes
+  useEffect(() => {
+    const key = toDateKey(selectedDate);
+    const filtered = (allTasks || []).filter((t) => t && t.date === key);
+    setLocalTasks(filtered);
+  }, [allTasks, selectedDate]);
 
-  // Загальний час (mock: підрахунок завершених що мають час)
-  const workedMinutes = tasks
-    .filter((t) => t.completed && t.startTime && t.endTime)
-    .reduce((acc, t) => {
-      const [sh, sm] = t.startTime.split(':').map(Number);
-      const [eh, em] = t.endTime.split(':').map(Number);
-      return acc + (eh * 60 + em) - (sh * 60 + sm);
-    }, 0);
-  const workedHours = Math.floor(workedMinutes / 60);
-  const workedMins = workedMinutes % 60;
-  const workedLabel = workedMins > 0 ? `${workedHours}г ${workedMins}хв` : `${workedHours}г`;
+  const stats = getDayStats(localTasks);
+  const workedLabel = formatMinutes(stats.actualMinutes);
 
   const handleToggle = (id) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    setLocalTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' }
+          : t
+      )
     );
   };
 
   const handleDeleteConfirm = (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setLocalTasks((prev) => prev.filter((t) => t.id !== id));
     setDeleteTarget(null);
   };
 
   const isSameDay = (a, b) => {
     if (!a || !b) return false;
-
     return (
       a.getDate() === b.getDate() &&
       a.getMonth() === b.getMonth() &&
@@ -124,16 +92,11 @@ const DailySummaryScreen = ({ visible, onClose }) => {
   };
 
   const handleRescheduleConfirm = (id, newDate) => {
-    const today = new Date();
-
-    if (isSameDay(newDate, today)) {
-    // 👉 Нічого не робимо — таска залишається
+    if (isSameDay(newDate, selectedDate)) {
       setRescheduleTarget(null);
       return;
     }
-
-  // 👉 Інакше — переносимо (поки що просто видаляємо зі списку дня)
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setLocalTasks((prev) => prev.filter((t) => t.id !== id));
     setRescheduleTarget(null);
   };
 
@@ -161,12 +124,12 @@ const DailySummaryScreen = ({ visible, onClose }) => {
 
         {/* Заголовок */}
         <Text style={styles.title}>Підсумки дня</Text>
-        <Text style={styles.dateLabel}>{formatDate(today)}</Text>
+        <Text style={styles.dateLabel}>{formatDate(selectedDate)}</Text>
 
         {/* Статистика */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{completedCount}</Text>
+            <Text style={styles.statValue}>{stats.completedCount}</Text>
             <Text style={styles.statLabel}>Виконано</Text>
           </View>
           <View style={styles.statItem}>
@@ -174,7 +137,7 @@ const DailySummaryScreen = ({ visible, onClose }) => {
             <Text style={styles.statLabel}>Працювали</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{tags.length}</Text>
+            <Text style={styles.statValue}>{stats.uniqueTagsCount}</Text>
             <Text style={styles.statLabel}>Теги</Text>
           </View>
         </View>
@@ -186,7 +149,7 @@ const DailySummaryScreen = ({ visible, onClose }) => {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {tasks.map((task) => (
+          {localTasks.map((task) => (
             <SwipeableTaskItem
               key={task.id}
               task={task}

@@ -36,6 +36,7 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
     return timeStr;
   };
 
+  const isCompleted = task.status === 'completed';
   const duration = calculateDuration(task.startTime, task.endTime);
 
   return (
@@ -45,18 +46,18 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
       </View>
       <View style={styles.contentColumn}>
         <View style={styles.connectorLine} />
-        <View style={[styles.taskCard, task.completed && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
+        <View style={[styles.taskCard, isCompleted && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
           <View style={styles.taskContent}>
             <View style={styles.taskLeft}>
-              <View style={[styles.taskIconContainer, task.completed && styles.taskIconContainerCompleted, selected && styles.taskIconContainerSelected]}>
-                <Icon 
-                  name="people" 
-                  size={18} 
-                  color={selected ? '#FFFFFF' : (task.completed ? COLORS.primaryStrong : COLORS.textSecondary)} 
+              <View style={[styles.taskIconContainer, isCompleted && styles.taskIconContainerCompleted, selected && styles.taskIconContainerSelected]}>
+                <Icon
+                  name="people"
+                  size={18}
+                  color={selected ? '#FFFFFF' : (isCompleted ? COLORS.primaryStrong : COLORS.textSecondary)}
                 />
               </View>
               <View style={styles.taskInfo}>
-                <Text style={[styles.taskTitle, task.completed && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}>
+                <Text style={[styles.taskTitle, isCompleted && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}>
                   {task.title}
                 </Text>
                 <Text style={[styles.taskTime, selected && styles.taskTimeSelected]}>
@@ -69,7 +70,7 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
               onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id); }}
               activeOpacity={0.7}
             >
-              {task.completed ? (
+              {isCompleted ? (
                 <Icon name="checkmark-circle" size={24} color={selected ? '#FFFFFF' : COLORS.primaryDark} />
               ) : (
                 <Icon name="ellipse-outline" size={24} color={selected ? '#FFFFFF' : COLORS.textSecondary} />
