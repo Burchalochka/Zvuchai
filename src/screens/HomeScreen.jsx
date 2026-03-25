@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../components/common/Header';
 import Calendar from '../components/calendar/Calendar';
 import TaskTimelineItem from '../components/tasks/TaskTimelineItem';
+import DailySummaryScreen from './DailySummaryScreen';
 import { useTasks } from '../context/TasksContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSelectedDate } from '../context/SelectedDateContext';
@@ -31,6 +32,7 @@ const HomeScreen = () => {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const [totalContentHeight, setTotalContentHeight] = useState(0);
+  const [isDailySummaryVisible, setIsDailySummaryVisible] = useState(false);
   const isScrollEnabled = totalContentHeight > scrollViewportHeight + 1;
   const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + SPACING.lg;
 
@@ -85,7 +87,12 @@ const HomeScreen = () => {
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.statsCard}>
+        {/* Статистика — натискання відкриває DailySummary */}
+        <TouchableOpacity
+          style={styles.statsCard}
+          onPress={() => setIsDailySummaryVisible(true)}
+          activeOpacity={0.85}
+        >
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>
               0
@@ -107,7 +114,7 @@ const HomeScreen = () => {
             <Text style={styles.statNumber}>0%</Text>
             <Text style={styles.statLabel}>{getTranslation('progress', language)}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <Calendar taskCountsByDate={taskCountsByDate} />
 
@@ -177,6 +184,12 @@ const HomeScreen = () => {
           )}
         </View>
       </ScrollView>
+
+      {/* Екран підсумків дня */}
+      <DailySummaryScreen
+        visible={isDailySummaryVisible}
+        onClose={() => setIsDailySummaryVisible(false)}
+      />
     </SafeAreaView>
   );
 };
