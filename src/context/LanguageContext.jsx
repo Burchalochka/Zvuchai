@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { DEV_CONFIG } from '../config/devConfig';
 
 const LanguageContext = createContext();
 
@@ -11,7 +12,9 @@ export const useLanguage = () => {
 };
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguageState] = useState(null); // null означает, что язык еще не выбран
+  const [language, setLanguageState] = useState(
+    DEV_CONFIG.SKIP_ONBOARDING ? DEV_CONFIG.DEFAULT_LANGUAGE : null,
+  );
 
   const setLanguage = (lang) => {
     setLanguageState(lang);

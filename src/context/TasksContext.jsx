@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { TaskStorage, HabitStorage, GoalStorage } from '../services/StorageService';
+import { DEV_CONFIG } from '../config/devConfig';
+import { getSeedTasks, getSeedHabits, getSeedGoals } from '../../seed';
 
 const TasksContext = createContext();
 
@@ -17,8 +19,28 @@ export const TasksProvider = ({ children }) => {
   const [goals, setGoals] = useState([]);
   const loaded = useRef(false);
 
-  // Load from storage on mount
+  // Load from storage on mount (with optional seed injection)
   useEffect(() => {
+    if (DEV_CONFIG.SEED_ENABLED) {
+      const shouldSeed =
+        DEV_CONFIG.SEED_MODE === 'always' ||
+        (TaskStorage.getAll().length === 0 && HabitStorage.getAll().length === 0);
+
+      if (shouldSeed) {
+        const seedTasks = getSeedTasks();
+        const seedHabits = getSeedHabits();
+        const seedGoals = getSeedGoals();
+        TaskStorage.saveAll(seedTasks);
+        HabitStorage.saveAll(seedHabits);
+        GoalStorage.saveAll(seedGoals);
+        setTasks(seedTasks);
+        setHabits(seedHabits);
+        setGoals(seedGoals);
+        loaded.current = true;
+        return;
+      }
+    }
+
     setTasks(TaskStorage.getAll());
     setHabits(HabitStorage.getAll());
     setGoals(GoalStorage.getAll());
