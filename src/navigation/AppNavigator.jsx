@@ -8,6 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import GoalsScreen from '../screens/GoalsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import InboxScreen from '../screens/InboxScreen';
+import OnboardingNavigator from './OnboardingNavigator';
 import { useLanguage } from '../context/LanguageContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
@@ -203,7 +204,11 @@ const styles = StyleSheet.create({
 
 const RootNavigator = () => {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    // Додаємо initialRouteName="OnboardingFlow", щоб додаток стартував з нього
+    <Stack.Navigator initialRouteName="OnboardingFlow" screenOptions={{ headerShown: false }}>
+      
+      {/* Наш новий стек онбордингу */}
+      <Stack.Screen name="OnboardingFlow" component={OnboardingNavigator} />
       <Stack.Screen name="Tabs" component={AppNavigator} />
       <Stack.Screen name="Microphone" component={MicrophoneScreen} />
     </Stack.Navigator>
