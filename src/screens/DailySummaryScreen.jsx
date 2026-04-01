@@ -50,7 +50,7 @@ const formatMinutes = (totalMinutes) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
-  const { tasks: allTasks } = useTasks();
+  const { tasks: allTasks, toggleTaskComplete, deleteTask, rescheduleTask } = useTasks();
   const { selectedDate } = useSelectedDate();
 
   const [localTasks, setLocalTasks] = useState([]);
@@ -68,6 +68,9 @@ const DailySummaryScreen = ({ visible, onClose }) => {
   const workedLabel = formatMinutes(stats.actualMinutes);
 
   const handleToggle = (id) => {
+    // Persist completion state via context/storage so HomeScreen reflects it too.
+    toggleTaskComplete(id);
+    // Keep local UI responsive; effect will resync from context shortly after.
     setLocalTasks((prev) =>
       prev.map((t) =>
         t.id === id
@@ -78,6 +81,7 @@ const DailySummaryScreen = ({ visible, onClose }) => {
   };
 
   const handleDeleteConfirm = (id) => {
+    deleteTask(id);
     setLocalTasks((prev) => prev.filter((t) => t.id !== id));
     setDeleteTarget(null);
   };
@@ -95,6 +99,10 @@ const DailySummaryScreen = ({ visible, onClose }) => {
     if (isSameDay(newDate, selectedDate)) {
       setRescheduleTarget(null);
       return;
+    }
+    const newKey = toDateKey(newDate);
+    if (newKey) {
+      rescheduleTask(id, newKey);
     }
     setLocalTasks((prev) => prev.filter((t) => t.id !== id));
     setRescheduleTarget(null);

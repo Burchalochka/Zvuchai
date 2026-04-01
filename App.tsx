@@ -5,74 +5,47 @@ import {
   DefaultTheme,
   createNavigationContainerRef,
 } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
 import AppNavigator from './src/navigation/AppNavigator';
-import SplashScreen from './src/screens/SplashScreen';
-import LanguageSelectionScreen from './src/screens/LanguageSelectionScreen';
 import { TasksProvider, useTasks } from './src/context/TasksContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ModalProvider, useModal } from './src/context/ModalContext';
 import { SelectedDateProvider } from './src/context/SelectedDateContext';
 import AddItemModal from './src/components/common/AddItemModal';
 import { COLORS } from './src/styles/theme';
-import { DEV_CONFIG } from './src/config/devConfig';
 
 const navigationRef = createNavigationContainerRef<any>();
 
-const AppContent = () => {
+const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
   const { isAddModalVisible, closeAddModal, openAddModal } = useModal();
   const { addTask, addHabit } = useTasks();
   const insets = useSafeAreaInsets();
 
-  const [showSplash, setShowSplash] = useState(!DEV_CONFIG.SKIP_ONBOARDING);
-  const [showLanguageSelection, setShowLanguageSelection] = useState(false);
   const [fabMode, setFabMode] = useState('plus');
-  const [currentRouteName, setCurrentRouteName] = useState('');
 
   useEffect(() => {
-    const updateRoute = () => {
-      const route = navigationRef.getCurrentRoute();
-      setCurrentRouteName(route?.name ?? '');
-    };
-
-    updateRoute();
-
-    const unsubscribe = navigationRef.addListener('state', updateRoute);
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  const handleSplashFinish = () => {
-    setShowSplash(false);
-    setShowLanguageSelection(true);
-  };
-
-  const handleLanguageSelected = () => {
-    setShowLanguageSelection(false);
-  };
-
-  if (showSplash) {
-    return <SplashScreen onFinish={handleSplashFinish} />;
-  }
-
-  if (showLanguageSelection) {
-    return (
-      <LanguageSelectionScreen onLanguageSelected={handleLanguageSelected} />
-    );
-  }
+    if (!currentRouteName) return;
+    if (currentRouteName === 'Microphone') {
+      setFabMode('voice');
+    } else if (fabMode !== 'plus') {
+      setFabMode('plus');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRouteName]);
 
   return (
     <>
       <View style={styles.container}>
         <AppNavigator />
 
-        {currentRouteName !== 'Microphone' && (
+        {!!currentRouteName &&
+          currentRouteName !== 'Splash' &&
+          currentRouteName !== 'Microphone' && (
           <View
             style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
             pointerEvents="box-none"
@@ -96,7 +69,10 @@ const AppContent = () => {
                       ? require('./src/assets/icons/Group-5.png')
                       : require('./src/assets/icons/Group-6.png')
                   }
-                  style={styles.fabIcon}
+                  style={[
+                    styles.fabIcon,
+                    { tintColor: fabMode === 'plus' ? COLORS.panel : COLORS.textDark },
+                  ]}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
@@ -121,7 +97,10 @@ const AppContent = () => {
                       ? require('./src/assets/icons/Group-8.png')
                       : require('./src/assets/icons/Group-7.png')
                   }
-                  style={styles.fabIcon}
+                  style={[
+                    styles.fabIcon,
+                    { tintColor: fabMode === 'voice' ? COLORS.panel : COLORS.textDark },
+                  ]}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
@@ -132,7 +111,10 @@ const AppContent = () => {
 
       <AddItemModal
         visible={isAddModalVisible}
-        onClose={closeAddModal}
+        onClose={() => {
+          closeAddModal();
+          setFabMode('plus');
+        }}
         onAddTask={addTask}
         onAddHabit={addHabit}
       />
@@ -149,24 +131,42 @@ const App = () => {
     },
   };
 
+  const [currentRouteName, setCurrentRouteName] = useState('');
+
   return (
-    <SafeAreaProvider style={styles.safeArea}>
-      <NavigationContainer ref={navigationRef} theme={navTheme}>
-        <LanguageProvider>
-          <TasksProvider>
-            <SelectedDateProvider>
-              <ModalProvider>
-                <AppContent />
-              </ModalProvider>
-            </SelectedDateProvider>
-          </TasksProvider>
-        </LanguageProvider>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <SafeAreaProvider style={styles.safeArea}>
+        <NavigationContainer
+          ref={navigationRef}
+          theme={navTheme}
+          onReady={() => {
+            const route = navigationRef.getCurrentRoute();
+            setCurrentRouteName(route?.name ?? '');
+          }}
+          onStateChange={() => {
+            const route = navigationRef.getCurrentRoute();
+            setCurrentRouteName(route?.name ?? '');
+          }}
+        >
+          <LanguageProvider>
+            <TasksProvider>
+              <SelectedDateProvider>
+                <ModalProvider>
+                  <AppContent currentRouteName={currentRouteName} />
+                </ModalProvider>
+              </SelectedDateProvider>
+            </TasksProvider>
+          </LanguageProvider>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

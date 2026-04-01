@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
-import { FONTS } from '../styles/theme';
+import { useNavigation } from '@react-navigation/native';
+import LottieView from 'lottie-react-native';
 
-const SplashScreen = ({ onFinish }) => {
+const SplashScreen = () => {
+  const navigation = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
 
@@ -24,37 +25,30 @@ const SplashScreen = ({ onFinish }) => {
     ]).start();
 
     const timer = setTimeout(() => {
-      if (onFinish) {
-        onFinish();
-      }
+      // Go straight to main app (Home is initial tab).
+      navigation.replace('Tabs');
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [fadeAnim, scaleAnim, onFinish]);
+  }, [fadeAnim, scaleAnim, navigation]);
 
   return (
     <SafeAreaView style={styles.container} edges={[]}>
-      <View style={styles.gradientContainer}>
-        <Svg width="100%" height="100%">
-          <Defs>
-            <SvgLinearGradient id="splashGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#D4C4B0" stopOpacity="1" />
-              <Stop offset="1" stopColor="#E8E0D5" stopOpacity="1" />
-            </SvgLinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashGrad)" />
-        </Svg>
-      </View>
       <Animated.View
         style={[
-          styles.textContainer,
+          styles.animationContainer,
           {
             opacity: fadeAnim,
             transform: [{ scale: scaleAnim }],
           },
         ]}
       >
-        <Text style={styles.text}>ZVYCHAI</Text>
+        <LottieView
+          source={require('../assets/lottie/Android-Compact-75.json')}
+          autoPlay
+          loop
+          style={styles.lottie}
+        />
       </Animated.View>
     </SafeAreaView>
   );
@@ -65,20 +59,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F5E9',
   },
-  gradientContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  textContainer: {
+  animationContainer: {
+    flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  text: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#514134',
-    fontFamily: 'Montserrat-Bold',
-    letterSpacing: 4,
+  lottie: {
+    flex: 1,
+    width: '100%',
   },
 });
 

@@ -27,6 +27,14 @@ const NewIcon = () => (
   />
 );
 
+const Vector12Icon = () => (
+  <Image
+    source={require('../../assets/icons/Vector12.png')}
+    style={styles.vector12Image}
+    resizeMode="contain"
+  />
+);
+
 const ProgressRing = ({ size = 50, strokeWidth = 4, progress = 0.75 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -61,7 +69,7 @@ const ProgressRing = ({ size = 50, strokeWidth = 4, progress = 0.75 }) => {
   );
 };
 
-const Header = ({ onMenuPress }) => (
+const Header = ({ onMenuPress, onVector12Press, onCalendarPress }) => (
   <View style={styles.container}>
     <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
       <NewIcon />
@@ -79,6 +87,14 @@ const Header = ({ onMenuPress }) => (
     </View>
 
     <View style={styles.rightSection}>
+      <TouchableOpacity
+        style={styles.iconButton}
+        onPress={onCalendarPress || onVector12Press}
+        accessibilityRole="button"
+      >
+        <Vector12Icon />
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.iconButton}>
         <CoinsIcon />
       </TouchableOpacity>
@@ -139,6 +155,10 @@ const styles = StyleSheet.create({
   iconImage: {
     width: 24,
     height: 24,
+  },
+  vector12Image: {
+    width: 19,
+    height: 19,
   },
   calendarIconContainer: {
     position: 'absolute',

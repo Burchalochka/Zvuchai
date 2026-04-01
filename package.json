@@ -5,7 +5,7 @@
   "scripts": {
     "android": "react-native run-android",
     "lint": "eslint .",
-    "start": "cross-env REACT_NATIVE_PACKAGER_HOSTNAME=localhost react-native start --reset-cache",
+    "start": "cross-env NODE_OPTIONS=--require=./scripts/node18-util-styleText-polyfill.cjs REACT_NATIVE_PACKAGER_HOSTNAME=10.0.2.2 react-native start --host 0.0.0.0 --port 8081 --reset-cache",
     "test": "jest"
   },
   "dependencies": {
@@ -15,17 +15,21 @@
     "@react-navigation/bottom-tabs": "^7.8.6",
     "@react-navigation/native": "^7.1.21",
     "@react-navigation/native-stack": "^7.14.5",
+    "lottie-react-native": "^7.3.6",
     "react": "19.1.1",
     "react-native": "0.82.1",
     "react-native-audio-recorder-player": "^4.5.0",
+    "react-native-draggable-flatlist": "^4.0.3",
     "react-native-gesture-handler": "^2.30.0",
     "react-native-mmkv": "^3.3.3",
     "react-native-nitro-modules": "^0.33.9",
     "react-native-nitro-sound": "^0.2.10",
+    "react-native-reanimated": "^4.3.0",
     "react-native-safe-area-context": "^5.7.0",
     "react-native-screens": "^4.18.0",
     "react-native-svg": "^15.15.0",
-    "react-native-vector-icons": "^10.3.0"
+    "react-native-vector-icons": "^10.3.0",
+    "react-native-worklets": "^0.8.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
