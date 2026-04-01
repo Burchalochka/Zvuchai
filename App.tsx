@@ -66,13 +66,23 @@ const AppContent = () => {
       <LanguageSelectionScreen onLanguageSelected={handleLanguageSelected} />
     );
   }
+const hiddenRoutes = [
+    'Microphone',
+    'Step1Sleep',
+    'Step2DeadZones',
+    'Step3ProductiveTime',
+    'Step4WorkStyle',
+    'Step5Fatigue',
+    'Step6Summary'
+  ];
 
   return (
     <>
       <View style={styles.container}>
         <AppNavigator />
 
-        {currentRouteName !== 'Microphone' && (
+        {/* ПЕРЕВІРКА: Показуємо кнопку, ТІЛЬКИ ЯКЩО поточного екрана немає в списку hiddenRoutes */}
+        {!hiddenRoutes.includes(currentRouteName) && (
           <View
             style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
             pointerEvents="box-none"
@@ -85,7 +95,6 @@ const AppContent = () => {
                   fabMode === 'plus' ? styles.fabSegmentActive : null,
                 ]}
                 onPress={() => {
-                  setFabMode('plus');
                   openAddModal();
                 }}
                 activeOpacity={0.8}
