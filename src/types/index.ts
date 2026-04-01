@@ -37,6 +37,8 @@ export interface BaseItem {
   deletedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Optional manual ordering inside a day (used for drag & drop). */
+  sortIndex?: number | null;
 }
 
 // ─── Task ────────────────────────────────────────────────────────────────────

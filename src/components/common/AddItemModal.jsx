@@ -21,15 +21,20 @@ try {
 }
 import AudioRecorderPlayer from 'react-native-nitro-sound';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../styles/theme';
+import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../styles/theme';
+import WheelPicker from '../calendar/WheelPicker';
 import { useTasks } from '../../context/TasksContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useSelectedDate } from '../../context/SelectedDateContext';
 import { getTranslation } from '../../utils/translations';
 import { createTask as createTaskWithBackend } from '../../services/TaskCreationService';
+import { PreferencesStorage } from '../../services/StorageService';
+import { checkTimeOverlap } from '../../utils/timeUtils';
 
 const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
-  const { tasks, habits, goals, addGoal } = useTasks();
+  const { tasks, habits, goals, addTask, addHabit, addGoal } = useTasks();
   const { language } = useLanguage();
+  const { selectedDate } = useSelectedDate();
   const [step, setStep] = useState('type'); // 'type' or 'form'
   const [itemType, setItemType] = useState(null);
   
@@ -63,6 +68,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [targetValue, setTargetValue] = useState('');
   const [currentProgress, setCurrentProgress] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [noDeadline, setNoDeadline] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [activeInput, setActiveInput] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -76,6 +82,11 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [currentRecordingPath, setCurrentRecordingPath] = useState(null);
   const [currentPlayerType, setCurrentPlayerType] = useState(null);
   const playbackListenerRef = useRef(null);
+  const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState(null); // 'start' | 'end'
+  const [timePickerHourIdx, setTimePickerHourIdx] = useState(9);
+  const [timePickerMinuteIdx, setTimePickerMinuteIdx] = useState(0);
+  const [conflictDialog, setConflictDialog] = useState(null);
   
   const themeColors = [
     '#E8E0D5',
@@ -88,6 +99,61 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     '#D4A5F5',
   ];
   const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
+
+  const toDateKey = (d) => {
+    if (!d) return null;
+    const x = new Date(d);
+    if (isNaN(x.getTime())) return null;
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, '0');
+    const day = String(x.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const selectedDateKey = toDateKey(selectedDate) || toDateKey(new Date());
+
+  const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+  const parseHHMM = (value) => {
+    const str = typeof value === 'string' ? value : '';
+    const [hRaw, mRaw] = str.split(':');
+    const h = Number(hRaw);
+    const m = Number(mRaw);
+    return {
+      h: Number.isFinite(h) ? Math.min(23, Math.max(0, h)) : 0,
+      m: Number.isFinite(m) ? Math.min(59, Math.max(0, m)) : 0,
+    };
+  };
+
+  const openTimePicker = (target) => {
+    const current = target === 'start' ? startTime : endTime;
+    const { h, m } = parseHHMM(current);
+    setTimePickerTarget(target);
+    setTimePickerHourIdx(h);
+    setTimePickerMinuteIdx(m);
+    setIsTimePickerVisible(true);
+  };
+
+  const confirmTimePicker = () => {
+    const value = `${HOURS[timePickerHourIdx]}:${MINUTES[timePickerMinuteIdx]}`;
+    if (timePickerTarget === 'start') setStartTime(value);
+    if (timePickerTarget === 'end') setEndTime(value);
+    setIsTimePickerVisible(false);
+    setTimePickerTarget(null);
+  };
+
+  const closeConflictDialog = () => setConflictDialog(null);
+
+  const pushTaskToState = (task) => {
+    if (typeof onAddTask === 'function') onAddTask(task);
+    else addTask(task);
+  };
+
+  const pushHabitToState = (habit) => {
+    if (typeof onAddHabit === 'function') onAddHabit(habit);
+    else addHabit(habit);
+  };
 
   const requestAudioPermission = useCallback(async () => {
     if (Platform.OS !== 'android') {
@@ -415,6 +481,95 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
   };
 
+  const toMinutes = (timeStr) => {
+    if (!validateTime(timeStr)) return null;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const computeDurationMinutes = (start, end) => {
+    const s = toMinutes(start);
+    const e = toMinutes(end);
+    if (s === null || e === null) return null;
+    const diff = e - s;
+    return diff > 0 ? diff : null;
+  };
+
+  const buildTaskPayload = ({ start, end }) => {
+    const duration = computeDurationMinutes(start, end);
+    return {
+      type: 'task',
+      title: title.trim(),
+      description: description.trim(),
+      date: noDeadline ? null : selectedDateKey,
+      startTime: noDeadline ? null : start,
+      endTime: noDeadline ? null : end,
+      estimatedDuration: duration ?? 0,
+      status: 'pending',
+      archived: false,
+      deletedAt: null,
+      tags: [],
+      themeColor: selectedColor,
+      titleAudio: titleAudio,
+      descriptionAudio: descriptionAudio,
+    };
+  };
+
+  const formatHHMM = (totalMinutes) => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const findNearestFreeSlot = ({ dateKey, startHHMM, durationMinutes }) => {
+    const prefs = PreferencesStorage.get();
+    const deadZones = prefs?.deadZones || [];
+
+    const existingOnDay = (tasks || []).filter(
+      (t) =>
+        t &&
+        t.type === 'task' &&
+        t.date === dateKey &&
+        t.startTime &&
+        t.endTime &&
+        !t.archived &&
+        t.deletedAt === null,
+    );
+
+    const asZones = existingOnDay.map((t) => ({
+      id: t.id,
+      name: t.title,
+      startTime: t.startTime,
+      endTime: t.endTime,
+    }));
+
+    const startMin = toMinutes(startHHMM);
+    if (startMin === null) return null;
+
+    const step = 5; // minutes
+    for (let m = startMin; m <= 1440 - durationMinutes; m += step) {
+      const candidateStartISO = `${dateKey}T${formatHHMM(m)}:00`;
+
+      // Dead zones
+      const overlapsDeadZone = deadZones.some((dz) =>
+        checkTimeOverlap(candidateStartISO, durationMinutes, dz),
+      );
+      if (overlapsDeadZone) continue;
+
+      // Existing tasks as zones
+      const overlapsTask = asZones.some((z) =>
+        checkTimeOverlap(candidateStartISO, durationMinutes, z),
+      );
+      if (overlapsTask) continue;
+
+      const start = formatHHMM(m);
+      const end = formatHHMM(m + durationMinutes);
+      return { start, end };
+    }
+
+    return null;
+  };
+
   const doCleanupAndClose = async () => {
     if (isRecording) {
       await stopVoiceInput(true);
@@ -429,6 +584,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setTargetValue('');
     setCurrentProgress('');
     setDeadline('');
+    setNoDeadline(false);
     setIsRecording(false);
     setActiveInput(null);
     setSelectedColor('#E8E0D5');
@@ -440,106 +596,88 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   };
 
   const handleAdd = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      Alert.alert(
+        getTranslation('title', language) || 'Назва',
+        getTranslation('enterTitle', language) || 'Введіть назву',
+      );
+      return;
+    }
 
     const formattedStartTime = formatTimeInput(startTime);
     const formattedEndTime = formatTimeInput(endTime);
 
-    if (!validateTime(formattedStartTime) || !validateTime(formattedEndTime)) {
-      const item = {
-        id: Date.now().toString(),
-        title: title.trim(),
-        description: description.trim(),
-        startTime: '09:00',
-        endTime: '10:00',
-        completed: false,
-        createdAt: new Date().toISOString(),
-        themeColor: selectedColor,
-        titleAudio: titleAudio,
-        descriptionAudio: descriptionAudio,
-      };
-
-      if (itemType === 'task') {
-        try {
-          const result = await createTaskWithBackend(item);
-          onAddTask(result);
-        } catch (err) {
-          if (err?.code === 'DEAD_ZONE_CONFLICT') {
-            const zoneName = err.zoneName ?? '';
-            Alert.alert(
-              getTranslation('deadZoneTitle', language) || 'Мертва зона',
-              `Це час вашої мертвої зони (${zoneName}). Точно поставити задачу?`,
-              [
-                { text: getTranslation('changeTime', language) || 'Змінити час', onPress: () => startVoiceInput('title') },
-                { text: getTranslation('confirm', language) || 'Підтвердити', onPress: async () => {
-                  const result = await createTaskWithBackend(item, { force: true });
-                  onAddTask(result);
-                  await doCleanupAndClose();
-                }},
-              ]
-            );
-            return;
-          }
-          throw err;
-        }
-      } else if (itemType === 'habit') {
-        onAddHabit(item);
-      } else if (itemType === 'goal') {
-        addGoal({
-          ...item,
-          targetValue: targetValue.trim(),
-          currentProgress: currentProgress.trim() || '0',
-          deadline: deadline.trim(),
-        });
+    if (!noDeadline) {
+      // Validate format and logical order (end must be after start)
+      const startValid = validateTime(formattedStartTime);
+      const endValid = validateTime(formattedEndTime);
+      const duration =
+        startValid && endValid ? computeDurationMinutes(formattedStartTime, formattedEndTime) : null;
+      if (!startValid || !endValid) {
+        Alert.alert(
+          getTranslation('time', language) || 'Час',
+          getTranslation('invalidTime', language) || 'Введіть коректний час',
+        );
+        return;
       }
-    } else {
-      const item = {
-        id: Date.now().toString(),
-        title: title.trim(),
-        description: description.trim(),
-        startTime: formattedStartTime,
-        endTime: formattedEndTime,
-        completed: false,
-        createdAt: new Date().toISOString(),
-        themeColor: selectedColor,
-        titleAudio: titleAudio,
-        descriptionAudio: descriptionAudio,
-      };
-
-      if (itemType === 'task') {
-        try {
-          const result = await createTaskWithBackend(item);
-          onAddTask(result);
-        } catch (err) {
-          if (err?.code === 'DEAD_ZONE_CONFLICT') {
-            const zoneName = err.zoneName ?? '';
-            Alert.alert(
-              getTranslation('deadZoneTitle', language) || 'Мертва зона',
-              `Це час вашої мертвої зони (${zoneName}). Точно поставити задачу?`,
-              [
-                { text: getTranslation('changeTime', language) || 'Змінити час', onPress: () => startVoiceInput('title') },
-                { text: getTranslation('confirm', language) || 'Підтвердити', onPress: async () => {
-                  const result = await createTaskWithBackend(item, { force: true });
-                  onAddTask(result);
-                  await doCleanupAndClose();
-                }},
-              ]
-            );
-            return;
-          }
-          throw err;
-        }
-      } else if (itemType === 'habit') {
-        onAddHabit(item);
-      } else if (itemType === 'goal') {
-        addGoal({
-          ...item,
-          targetValue: targetValue.trim(),
-          currentProgress: currentProgress.trim() || '0',
-          deadline: deadline.trim(),
-        });
+      if (duration === null) {
+        Alert.alert(
+          getTranslation('time', language) || 'Час',
+          getTranslation('endAfterStart', language) || 'Кінець має бути пізніше за початок',
+        );
+        return;
       }
     }
+
+    const item = buildTaskPayload({ start: formattedStartTime, end: formattedEndTime });
+
+      if (itemType === 'task') {
+        try {
+          const result = await createTaskWithBackend(item);
+          // Persisted to storage by service; also sync to in-memory context.
+          pushTaskToState(result);
+        } catch (err) {
+          if (err?.code === 'DEAD_ZONE_CONFLICT') {
+            setConflictDialog({
+              kind: 'dead_zone',
+              title: getTranslation('deadZoneTitle', language) || 'Мертва зона',
+              message: `${err.message || 'Це час вашої мертвої зони'}${err.zoneName ? ` (${err.zoneName})` : ''}.`,
+              item,
+            });
+            return;
+          }
+          if (err?.code === 'TASK_OVERLAP') {
+            // Ask the user: add in parallel on same time, place nearby, or reschedule.
+            setConflictDialog({
+              kind: 'task_overlap',
+              title: 'Час уже зайнятий',
+              message: `${err.conflictingTaskTitle ? `У вас уже є задача “${err.conflictingTaskTitle}” у цей час.` : (err.message || 'Цей час вже зайнятий іншою задачею')}`,
+              item,
+              conflictingTaskTitle: err.conflictingTaskTitle ?? null,
+            });
+            return;
+          }
+          throw err;
+        }
+      } else if (itemType === 'habit') {
+        const habit = {
+          ...item,
+          // habits use the same shape in this app (date + times + status)
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString(),
+          type: 'habit',
+        };
+        pushHabitToState(habit);
+      } else if (itemType === 'goal') {
+        addGoal({
+          ...item,
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString(),
+          targetValue: targetValue.trim(),
+          currentProgress: currentProgress.trim() || '0',
+          deadline: noDeadline ? '' : deadline.trim(),
+        });
+      }
 
     await doCleanupAndClose();
   };
@@ -560,6 +698,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setTargetValue('');
     setCurrentProgress('');
     setDeadline('');
+    setNoDeadline(false);
     setIsRecording(false);
     setActiveInput(null);
     setSelectedColor('#E8E0D5');
@@ -998,71 +1137,53 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                     </TouchableOpacity>
                   </View>
                 )}
+              </View>
+
+              <View style={styles.formGroup}>
                 <TouchableOpacity
-                  style={styles.voiceButton}
-                  onPress={() => startVoiceInput('title')}
-                  activeOpacity={0.7}
+                  style={styles.noDeadlineRow}
+                  activeOpacity={0.8}
+                  onPress={() => setNoDeadline((v) => !v)}
                 >
-                  <Animated.View
-                    style={{
-                      transform: [{ scale: voiceButtonScale }],
-                    }}
-                  >
-                    <Icon 
-                      name={isRecording && activeInput === 'title' ? 'stop-circle' : 'mic-outline'} 
-                      size={20} 
-                      color={isRecording && activeInput === 'title' ? COLORS.error : COLORS.textSecondary} 
+                  <View style={styles.noDeadlineLeft}>
+                    <Icon
+                      name={noDeadline ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={COLORS.primaryDark}
                     />
-                    <Text style={styles.voiceButtonText}>
-                      {isRecording && activeInput === 'title' 
-                        ? getTranslation('stopRecording', language) 
-                        : getTranslation('recordVoice', language)}
-                    </Text>
-                  </Animated.View>
+                    <Text style={styles.noDeadlineText}>Без дедлайну</Text>
+                  </View>
+                  <Text style={styles.noDeadlineHint}>
+                    {noDeadline ? 'Буде в “Без дедлайну”' : 'Має час та день'}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.timeRow}>
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>{getTranslation('start', language)}</Text>
-                  <View style={styles.timeInputContainer}>
-                    <TextInput
-                      style={styles.timeInput}
-                      value={startTime}
-                      onChangeText={(text) => {
-                        const formatted = formatTimeInput(text);
-                        if (formatted.length <= 5) {
-                          setStartTime(formatted);
-                        }
-                      }}
-                      placeholder="09:00"
-                      placeholderTextColor={COLORS.textSecondary}
-                      maxLength={5}
-                      keyboardType="numeric"
-                    />
+              {!noDeadline && (
+                <View style={styles.timeRow}>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>{getTranslation('start', language)}</Text>
+                    <TouchableOpacity
+                      style={styles.timeInputContainer}
+                      activeOpacity={0.8}
+                      onPress={() => openTimePicker('start')}
+                    >
+                      <Text style={styles.timeValueText}>{startTime}</Text>
+                    </TouchableOpacity>
                   </View>
-                </View>
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>{getTranslation('end', language)}</Text>
-                  <View style={styles.timeInputContainer}>
-                    <TextInput
-                      style={styles.timeInput}
-                      value={endTime}
-                      onChangeText={(text) => {
-                        const formatted = formatTimeInput(text);
-                        if (formatted.length <= 5) {
-                          setEndTime(formatted);
-                        }
-                      }}
-                      placeholder="10:00"
-                      placeholderTextColor={COLORS.textSecondary}
-                      maxLength={5}
-                      keyboardType="numeric"
-                    />
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>{getTranslation('end', language)}</Text>
+                    <TouchableOpacity
+                      style={styles.timeInputContainer}
+                      activeOpacity={0.8}
+                      onPress={() => openTimePicker('end')}
+                    >
+                      <Text style={styles.timeValueText}>{endTime}</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              )}
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>{getTranslation('descriptionOptional', language)}</Text>
@@ -1104,28 +1225,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                     </TouchableOpacity>
                   </View>
                 )}
-                <TouchableOpacity
-                  style={styles.voiceButton}
-                  onPress={() => startVoiceInput('description')}
-                  activeOpacity={0.7}
-                >
-                  <Animated.View
-                    style={{
-                      transform: [{ scale: voiceButtonScale }],
-                    }}
-                  >
-                    <Icon 
-                      name={isRecording && activeInput === 'description' ? 'stop-circle' : 'mic-outline'} 
-                      size={20} 
-                      color={isRecording && activeInput === 'description' ? COLORS.error : COLORS.textSecondary} 
-                    />
-                    <Text style={styles.voiceButtonText}>
-                      {isRecording && activeInput === 'description' 
-                        ? getTranslation('stopRecording', language) 
-                        : getTranslation('recordVoice', language)}
-                    </Text>
-                  </Animated.View>
-                </TouchableOpacity>
               </View>
 
               {itemType === 'goal' && (
@@ -1160,6 +1259,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                       onChangeText={setDeadline}
                       placeholder={getTranslation('exampleDeadline', language)}
                       placeholderTextColor={COLORS.textSecondary}
+                      editable={!noDeadline}
                     />
                   </View>
                 </>
@@ -1190,7 +1290,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
               <TouchableOpacity
                 style={[styles.addButton, !title.trim() && styles.addButtonDisabled]}
                 onPress={handleAdd}
-                disabled={!title.trim()}
                 activeOpacity={0.7}
               >
                 <Text style={styles.addButtonText}>Додати</Text>
@@ -1262,6 +1361,150 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
           </Animated.View>
         </View>
       )}
+
+      <Modal
+        visible={isTimePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsTimePickerVisible(false)}
+      >
+        <View style={styles.timePickerOverlay}>
+          <TouchableOpacity
+            style={styles.timePickerBackdrop}
+            activeOpacity={1}
+            onPress={() => setIsTimePickerVisible(false)}
+          />
+          <View style={styles.timePickerCard}>
+            <Text style={styles.timePickerTitle}>
+              {timePickerTarget === 'start'
+                ? getTranslation('start', language)
+                : getTranslation('end', language)}
+            </Text>
+            <View style={styles.timePickerWheels}>
+              <WheelPicker
+                data={HOURS}
+                selectedIndex={timePickerHourIdx}
+                onChange={(idx) => setTimePickerHourIdx(idx)}
+                width={110}
+                itemHeight={44}
+                visibleItems={5}
+                textStyle={styles.wheelItem}
+                selectedTextStyle={styles.wheelSelectedItem}
+              />
+              <Text style={styles.timePickerColon}>:</Text>
+              <WheelPicker
+                data={MINUTES}
+                selectedIndex={timePickerMinuteIdx}
+                onChange={(idx) => setTimePickerMinuteIdx(idx)}
+                width={110}
+                itemHeight={44}
+                visibleItems={5}
+                textStyle={styles.wheelItem}
+                selectedTextStyle={styles.wheelSelectedItem}
+              />
+            </View>
+            <View style={styles.timePickerButtons}>
+              <TouchableOpacity
+                style={styles.timePickerCancel}
+                onPress={() => setIsTimePickerVisible(false)}
+              >
+                <Text style={styles.timePickerCancelText}>
+                  {getTranslation('cancel', language) || 'Скасувати'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.timePickerOk} onPress={confirmTimePicker}>
+                <Text style={styles.timePickerOkText}>
+                  {getTranslation('confirm', language) || 'Підтвердити'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Conflict dialog (custom design) */}
+      <Modal
+        visible={!!conflictDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={closeConflictDialog}
+      >
+        <View style={styles.conflictOverlay}>
+          <TouchableOpacity
+            style={styles.conflictBackdrop}
+            activeOpacity={1}
+            onPress={closeConflictDialog}
+          />
+          <View style={styles.conflictCard}>
+            <Text style={styles.conflictTitle}>{conflictDialog?.title}</Text>
+            <Text style={styles.conflictMessage}>
+              {conflictDialog?.message}
+            </Text>
+
+            {conflictDialog?.kind === 'task_overlap' ? (
+              <Text style={styles.conflictHint}>
+                Перенести задачу або додати на цей самий час (паралельно)?
+              </Text>
+            ) : (
+              <Text style={styles.conflictHint}>
+                Поставити поруч або перенести час.
+              </Text>
+            )}
+
+            <View style={styles.conflictButtons}>
+              <TouchableOpacity
+                style={styles.conflictSecondary}
+                onPress={() => {
+                  closeConflictDialog();
+                  openTimePicker('start');
+                }}
+              >
+                <Text style={styles.conflictSecondaryText}>Перенести</Text>
+              </TouchableOpacity>
+            </View>
+
+            {conflictDialog?.kind === 'task_overlap' ? (
+              <TouchableOpacity
+                style={styles.conflictTertiary}
+                onPress={async () => {
+                  const item = conflictDialog?.item;
+                  if (!item) return;
+                  try {
+                    const result = await createTaskWithBackend(item, { forceSave: true });
+                    pushTaskToState(result);
+                    closeConflictDialog();
+                    await doCleanupAndClose();
+                  } catch {
+                    closeConflictDialog();
+                  }
+                }}
+              >
+                <Text style={styles.conflictTertiaryText}>Додати на цей час</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {conflictDialog?.kind === 'dead_zone' ? (
+              <TouchableOpacity
+                style={styles.conflictTertiary}
+                onPress={async () => {
+                  const item = conflictDialog?.item;
+                  if (!item) return;
+                  try {
+                    const result = await createTaskWithBackend(item, { forceSave: true });
+                    pushTaskToState(result);
+                    closeConflictDialog();
+                    await doCleanupAndClose();
+                  } catch {
+                    closeConflictDialog();
+                  }
+                }}
+              >
+                <Text style={styles.conflictTertiaryText}>Все одно додати</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -1275,23 +1518,24 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    // Ensure backdrop doesn't steal touches from sheet on Android.
+    zIndex: 0,
+    elevation: 0,
   },
   modalContent: {
-    backgroundColor: '#7AB8AD',
+    // Match Home screen palette (warm base, light panel)
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingBottom: 0,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.medium,
+    position: 'relative',
+    zIndex: 1,
+    elevation: 20,
     width: '100%',
     alignSelf: 'flex-end',
-    zIndex: 1000,
   },
   modalContentDynamic: {
     minHeight: '60%',
@@ -1304,6 +1548,9 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
     borderBottomWidth: 0,
+    backgroundColor: COLORS.panelLight,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
   },
   closeButton: {
     width: 32,
@@ -1311,9 +1558,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
+    ...SHADOWS.small,
   },
   placeholderButton: {
     width: 32,
@@ -1323,16 +1571,17 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
     fontFamily: 'Montserrat-Medium',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    color: COLORS.text,
+    textShadowColor: 'rgba(0, 0, 0, 0.12)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    textShadowRadius: 4,
   },
   typeSelection: {
     padding: SPACING.md,
     paddingBottom: SPACING.md,
     flex: 1,
     justifyContent: 'center',
+    backgroundColor: COLORS.panelLight,
   },
   cardsRow: {
     flexDirection: 'row',
@@ -1355,21 +1604,14 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     borderRadius: RADIUS.xl,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    ...SHADOWS.medium,
     overflow: 'hidden',
     height: 160,
     maxHeight: 160,
     position: 'relative',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderColor: COLORS.border,
   },
   cardHeader: {
     height: 50,
@@ -1404,26 +1646,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: COLORS.primary,
+    ...SHADOWS.small,
     borderWidth: 1.5,
-    borderColor: 'rgba(99, 189, 175, 0.15)',
+    borderColor: COLORS.border,
   },
   taskIconWrapper: {
-    backgroundColor: '#E8E0D5',
+    backgroundColor: COLORS.primary,
   },
   habitIconWrapper: {
-    backgroundColor: '#FFE5B4', // Персиковый для звичок
+    backgroundColor: COLORS.primaryStrong,
   },
   goalIconWrapper: {
-    backgroundColor: '#E0D5FF', // Лавандовый для целей
+    backgroundColor: COLORS.grayLight,
   },
   typeTitle: {
     fontSize: FONTS.sizes.xl,
@@ -1469,13 +1704,13 @@ const styles = StyleSheet.create({
   },
   formWrapper: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     borderRadius: 28,
     marginTop: SPACING.sm,
   },
   formContainer: {
     padding: SPACING.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
   },
   scrollContentContainer: {
     paddingBottom: SPACING.xl,
@@ -1511,16 +1746,17 @@ const styles = StyleSheet.create({
     padding: SPACING.xs,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
-    fontFamily: 'Montserrat-Regular',
+    // On Android, fall back to system font to ensure Cyrillic glyphs render.
+    fontFamily: Platform.OS === 'android' ? undefined : 'Montserrat-Regular',
     minHeight: 48,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
   textArea: {
     minHeight: 80,
@@ -1534,33 +1770,211 @@ const styles = StyleSheet.create({
   timeInputContainer: {
     flex: 1,
   },
-  timeInput: {
-    backgroundColor: '#FFFFFF',
+  timeValueText: {
+    backgroundColor: COLORS.background,
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
-    fontFamily: 'Montserrat-Regular',
+    fontFamily: Platform.OS === 'android' ? undefined : 'Montserrat-Regular',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
     textAlign: 'center',
     fontWeight: '500',
   },
+  timePickerOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timePickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  timePickerCard: {
+    width: '86%',
+    maxWidth: 380,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.xl,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.medium,
+  },
+  timePickerTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontFamily: 'Montserrat-SemiBold',
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  timePickerWheels: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  timePickerColon: {
+    fontSize: 22,
+    color: COLORS.textSecondary,
+    marginHorizontal: SPACING.xs,
+    fontFamily: 'Montserrat-Medium',
+  },
+  wheelItem: {
+    color: COLORS.textSecondary,
+    fontSize: 20,
+    fontFamily: 'Montserrat-Medium',
+    textAlign: 'center',
+    height: 44,
+    lineHeight: 44,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  wheelSelectedItem: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+  },
+  timePickerButtons: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  timePickerCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panelLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timePickerCancelText: {
+    color: COLORS.text,
+    fontSize: FONTS.sizes.md,
+    fontFamily: 'Montserrat-Medium',
+  },
+  timePickerOk: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.accentBrown,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timePickerOkText: {
+    color: '#FFFFFF',
+    fontSize: FONTS.sizes.md,
+    fontFamily: 'Montserrat-SemiBold',
+  },
+  conflictOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conflictBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 0,
+    elevation: 0,
+  },
+  conflictCard: {
+    width: '88%',
+    maxWidth: 420,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.xl,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.medium,
+    position: 'relative',
+    zIndex: 1,
+    elevation: 30,
+  },
+  conflictTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+    letterSpacing: 0.2,
+  },
+  conflictMessage: {
+    fontSize: FONTS.sizes.md,
+    // Use Montserrat Medium to avoid missing Cyrillic glyphs on Android builds.
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+    lineHeight: 22,
+  },
+  conflictEmphasis: {
+    fontFamily: FONTS.bold,
+    color: COLORS.text,
+  },
+  conflictHint: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+    lineHeight: 20,
+  },
+  conflictButtons: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  conflictSecondary: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panelLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictSecondaryText: {
+    color: COLORS.text,
+    fontSize: FONTS.sizes.md,
+    fontFamily: FONTS.medium,
+  },
+  conflictPrimary: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.accentBrown,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: FONTS.sizes.md,
+    fontFamily: FONTS.bold,
+  },
+  conflictTertiary: {
+    marginTop: SPACING.md,
+    paddingVertical: 12,
+    borderRadius: RADIUS.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conflictTertiaryText: {
+    color: COLORS.textSecondary,
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    textDecorationLine: 'underline',
+  },
   addButton: {
-    backgroundColor: COLORS.primaryStrong,
+    backgroundColor: COLORS.accentBrown,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md + 4,
     alignItems: 'center',
     marginTop: SPACING.lg,
-    shadowColor: COLORS.primaryStrong,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    ...SHADOWS.medium,
   },
   voiceButton: {
     flexDirection: 'row',
@@ -1570,10 +1984,10 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.grayLight,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
   voiceButtonText: {
     fontSize: FONTS.sizes.sm,
@@ -1586,10 +2000,10 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginTop: SPACING.sm,
     padding: SPACING.sm,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.grayLight,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: COLORS.border,
   },
   audioLabel: {
     flex: 1,
@@ -1617,14 +2031,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    ...SHADOWS.small,
   },
   colorOptionSelected: {
     borderColor: COLORS.text,
@@ -1649,7 +2056,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   emojiPickerContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '50%',
@@ -1663,7 +2070,7 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: COLORS.border,
   },
   emojiPickerTitle: {
     fontSize: FONTS.sizes.lg,
@@ -1690,10 +2097,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: RADIUS.md,
     margin: SPACING.xs,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.grayLight,
   },
   emojiText: {
     fontSize: 28,
+  },
+  noDeadlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.grayLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  noDeadlineLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  noDeadlineText: {
+    fontSize: FONTS.sizes.md,
+    fontFamily: 'Montserrat-Medium',
+    color: COLORS.text,
+  },
+  noDeadlineHint: {
+    fontSize: FONTS.sizes.xs,
+    fontFamily: 'Montserrat-Regular',
+    color: COLORS.textSecondary,
   },
 });
 

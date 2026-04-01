@@ -18,13 +18,21 @@ import { getTranslation } from '../../utils/translations';
 const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 5;
 
-const Calendar = ({ taskCountsByDate = {} }) => {
+const Calendar = ({ taskCountsByDate = {}, viewMode, onViewModeChange }) => {
   const { language } = useLanguage();
-  const { selectedDate: currentDate, setSelectedDate: setCurrentDate } = useSelectedDate();
-  const today = new Date();
+  const { selectedDate: currentDate, setSelectedDate: setCurrentDate, todayKyiv } = useSelectedDate();
+  const today = todayKyiv || new Date();
   
   const [expanded, setExpanded] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+
+  const effectiveMode = viewMode || (expanded ? 'month' : 'week');
+  const setMode = (nextMode) => {
+    onViewModeChange?.(nextMode);
+    if (!viewMode) {
+      setExpanded(nextMode === 'month');
+    }
+  };
   
   const MONTHS = [
     getTranslation('monthJanuary', language),
@@ -86,6 +94,7 @@ const Calendar = ({ taskCountsByDate = {} }) => {
         date: prevMonthDays - i,
         isCurrentMonth: false,
         fullDate: new Date(year, month - 1, prevMonthDays - i),
+        isPlaceholder: false,
       });
     }
     
@@ -94,7 +103,23 @@ const Calendar = ({ taskCountsByDate = {} }) => {
         date: i,
         isCurrentMonth: true,
         fullDate: new Date(year, month, i),
+        isPlaceholder: false,
       });
+    }
+
+    // Fill the last week with placeholders (NOT next-month days).
+    // This keeps the grid aligned but doesn't "show" the next month until user switches months.
+    const remainder = days.length % 7;
+    if (remainder !== 0) {
+      const toAdd = 7 - remainder;
+      for (let i = 0; i < toAdd; i++) {
+        days.push({
+          date: null,
+          isCurrentMonth: false,
+          fullDate: null,
+          isPlaceholder: true,
+        });
+      }
     }
     
     return days;
@@ -196,6 +221,10 @@ const Calendar = ({ taskCountsByDate = {} }) => {
         </View>
         <View style={styles.monthDaysGrid}>
           {days.map((day, index) => {
+            if (day.isPlaceholder) {
+              return <View key={`ph-${index}`} style={[styles.monthDateItem, styles.placeholderItem]} />;
+            }
+
             const isSelected = isSelectedDate(day.fullDate);
             return (
               <TouchableOpacity
@@ -289,11 +318,11 @@ const Calendar = ({ taskCountsByDate = {} }) => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.headerButton}
-          onPress={() => setExpanded(!expanded)}
+          onPress={() => setMode(effectiveMode === 'month' ? 'week' : 'month')}
         >
           <Text style={styles.headerText}>{getMonthYearText()}</Text>
           <Icon
-            name={expanded ? 'chevron-up' : 'chevron-down'}
+            name={effectiveMode === 'month' ? 'chevron-up' : 'chevron-down'}
             size={20}
             color={COLORS.primaryDark}
           />
@@ -314,7 +343,7 @@ const Calendar = ({ taskCountsByDate = {} }) => {
         </TouchableOpacity>
       </View>
 
-      {expanded ? renderMonthView() : renderWeekView()}
+      {effectiveMode === 'month' ? renderMonthView() : renderWeekView()}
 
       {renderMonthPicker()}
     </View>
@@ -456,6 +485,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingVertical: 4,
     borderRadius: RADIUS.sm,
+  },
+  placeholderItem: {
+    opacity: 0,
   },
   monthNumberWrapper: {
     width: 38,

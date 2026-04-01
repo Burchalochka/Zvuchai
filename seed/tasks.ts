@@ -4,9 +4,24 @@ import type { Task } from '../src/types';
 
 /** Returns 'YYYY-MM-DD' for today + n days (negative = past). */
 export function dayOffset(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Seed data must align with app's calendar logic (Kyiv timezone).
+  // Otherwise tasks can "shift" a day and not appear on the selected date.
+  const KYIV_TZ = 'Europe/Kyiv';
+  const base = new Date();
+  base.setDate(base.getDate() + n);
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: KYIV_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(base);
+
+  const year = parts.find((p) => p.type === 'year')?.value ?? '1970';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01';
+
+  return `${year}-${month}-${day}`;
 }
 
 /** Returns an ISO datetime string for a given date offset at a specific time. */

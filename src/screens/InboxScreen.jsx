@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../components/common/Header';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
+import { useTasks } from '../context/TasksContext';
 
 const TAB_BAR_HEIGHT = 74;
 
@@ -60,30 +61,6 @@ const MOCK_TASKS = [
     timeInfo: undefined,
     dateRange: '23 лютого — 1 березня',
   },
-  {
-    id: 't3',
-    title: 'Розібрати нотатки в блокноті',
-    startTime: undefined,
-    durationMinutes: 45,
-    status: 'pending',
-    confidenceScore: undefined,
-    deadlineType: 'none',
-    dateInfo: 'Без дедлайну',
-    timeInfo: undefined,
-    dateRange: undefined,
-  },
-  {
-    id: 't4',
-    title: 'Зробити резервну копію важливих файлів',
-    startTime: undefined,
-    durationMinutes: 60,
-    status: 'pending',
-    confidenceScore: undefined,
-    deadlineType: 'flexible',
-    dateInfo: 'Цього тижня',
-    timeInfo: undefined,
-    dateRange: '23 лютого — 1 березня',
-  },
 ];
 
 const MAIN_TABS = {
@@ -99,6 +76,7 @@ const SUB_TABS = {
 
 const InboxScreen = () => {
   const insets = useSafeAreaInsets();
+  const { tasks } = useTasks();
 
   const [activeMainTab, setActiveMainTab] = useState(MAIN_TABS.NO_DEADLINE);
   const [activeSubTab, setActiveSubTab] = useState(SUB_TABS.ALL);
@@ -124,17 +102,32 @@ const InboxScreen = () => {
   };
 
   const filteredTasks = useMemo(() => {
+    const realNoDeadline = (tasks || [])
+      .filter((t) => t && t.type === 'task' && (t.date == null || t.startTime == null || t.endTime == null))
+      .map((t) => ({
+        id: String(t.id),
+        title: String(t.title || ''),
+        startTime: undefined,
+        durationMinutes: undefined,
+        status: 'pending',
+        confidenceScore: undefined,
+        deadlineType: 'none',
+        dateInfo: 'Без дедлайну',
+        timeInfo: undefined,
+        dateRange: undefined,
+      }));
+
     const base =
       activeMainTab === MAIN_TABS.AI_UNSURE
         ? MOCK_TASKS.filter((t) => t.status === 'requires_review')
-        : MOCK_TASKS.filter((t) => t.status !== 'requires_review');
+        : realNoDeadline;
 
     if (activeMainTab === MAIN_TABS.AI_UNSURE && activeSubTab === SUB_TABS.TODAY) {
       return base.filter((t) => (t.dateInfo || '').toLowerCase().includes('сьогодні'));
     }
 
     return base;
-  }, [activeMainTab, activeSubTab]);
+  }, [activeMainTab, activeSubTab, tasks]);
 
   const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + SPACING.lg;
 

@@ -98,6 +98,48 @@ export const TasksProvider = ({ children }) => {
     setTasks((prev) => prev.filter((task) => task.id !== taskId));
   };
 
+  const rescheduleTask = (taskId, newDateKey) => {
+    if (!newDateKey) return;
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== taskId) return task;
+        return {
+          ...task,
+          date: newDateKey,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
+  const updateTask = (taskId, patch) => {
+    if (!taskId || !patch) return;
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== taskId) return task;
+        return {
+          ...task,
+          ...patch,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
+  const reorderTasksForDate = (dateKey, orderedIds) => {
+    if (!dateKey || !Array.isArray(orderedIds)) return;
+    const indexById = new Map(orderedIds.map((id, idx) => [String(id), idx]));
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (!t || t.type !== 'task') return t;
+        if (t.date !== dateKey) return t;
+        const idx = indexById.get(String(t.id));
+        if (idx === undefined) return t;
+        return { ...t, sortIndex: idx, updatedAt: new Date().toISOString() };
+      })
+    );
+  };
+
   const deleteHabit = (habitId) => {
     setHabits((prev) => prev.filter((habit) => habit.id !== habitId));
   };
@@ -134,6 +176,9 @@ export const TasksProvider = ({ children }) => {
         toggleHabitComplete,
         toggleGoalComplete,
         deleteTask,
+        rescheduleTask,
+        updateTask,
+        reorderTasksForDate,
         deleteHabit,
         deleteGoal,
       }}

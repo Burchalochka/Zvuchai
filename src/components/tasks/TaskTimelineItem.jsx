@@ -5,15 +5,19 @@ import { COLORS, SPACING, FONTS } from '../../styles/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { getTranslation } from '../../utils/translations';
 
-const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
+const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) => {
   const { language } = useLanguage();
   
   const parseTime = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
+      return { hours: 0, minutes: 0 };
+    }
     const [hours, minutes] = timeStr.split(':');
     return { hours: parseInt(hours), minutes: parseInt(minutes) };
   };
 
   const calculateDuration = (start, end) => {
+    if (!start || !end) return '';
     const startTime = parseTime(start);
     const endTime = parseTime(end);
     const startMinutes = startTime.hours * 60 + startTime.minutes;
@@ -33,9 +37,10 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
   };
 
   const formatTime = (timeStr) => {
-    return timeStr;
+    return timeStr || '--:--';
   };
 
+  if (!task) return null;
   const isCompleted = task.status === 'completed';
   const duration = calculateDuration(task.startTime, task.endTime);
 
@@ -61,10 +66,26 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
                   {task.title}
                 </Text>
                 <Text style={[styles.taskTime, selected && styles.taskTimeSelected]}>
-                  {formatTime(task.startTime)}-{formatTime(task.endTime)} ({duration})
+                  {formatTime(task.startTime)}-{formatTime(task.endTime)}
+                  {duration ? ` (${duration})` : ''}
                 </Text>
               </View>
             </View>
+            <TouchableOpacity
+              style={styles.actionsBtn}
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                onOpenActions?.(task);
+              }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon
+                name="ellipsis-vertical"
+                size={18}
+                color={selected ? '#FFFFFF' : COLORS.textSecondary}
+              />
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkbox}
               onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id); }}
@@ -178,6 +199,11 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     marginLeft: SPACING.sm,
+  },
+  actionsBtn: {
+    marginLeft: SPACING.sm,
+    padding: 4,
+    borderRadius: 999,
   },
 });
 
