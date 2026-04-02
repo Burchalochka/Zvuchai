@@ -7,6 +7,17 @@ import { getTranslation } from '../../utils/translations';
 
 const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) => {
   const { language } = useLanguage();
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const toDateKey = (d) => {
+    if (!d) return null;
+    const x = new Date(d);
+    if (isNaN(x.getTime())) return null;
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, '0');
+    const day = String(x.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   
   const parseTime = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
@@ -42,6 +53,21 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
 
   if (!task) return null;
   const isCompleted = task.status === 'completed';
+  const manualOverride = task?.autoDoneOverride;
+  const selectedKey = task?.date || null;
+  const todayKey = toDateKey(now);
+  const isToday = !!selectedKey && selectedKey === todayKey;
+  const isPastDay = !!selectedKey && !!todayKey && selectedKey < todayKey;
+  const end = parseTime(task.endTime);
+  const endMin = (end?.hours || 0) * 60 + (end?.minutes || 0);
+  const autoDoneByTime = isPastDay || (isToday && !!task.endTime && nowMin >= endMin);
+  const autoDone = autoDoneByTime && manualOverride !== 'pending';
+  const isVisuallyCompleted =
+    manualOverride === 'pending'
+      ? false
+      : manualOverride === 'completed'
+        ? true
+        : (isCompleted || autoDone);
   const duration = calculateDuration(task.startTime, task.endTime);
 
   return (
@@ -51,18 +77,18 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
       </View>
       <View style={styles.contentColumn}>
         <View style={styles.connectorLine} />
-        <View style={[styles.taskCard, isCompleted && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
+        <View style={[styles.taskCard, isVisuallyCompleted && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
           <View style={styles.taskContent}>
             <View style={styles.taskLeft}>
               <View style={[styles.taskIconContainer, isCompleted && styles.taskIconContainerCompleted, selected && styles.taskIconContainerSelected]}>
                 <Icon
                   name="people"
                   size={18}
-                  color={selected ? '#FFFFFF' : (isCompleted ? COLORS.primaryStrong : COLORS.textSecondary)}
+                  color={selected ? '#FFFFFF' : (isVisuallyCompleted ? COLORS.primaryStrong : COLORS.textSecondary)}
                 />
               </View>
               <View style={styles.taskInfo}>
-                <Text style={[styles.taskTitle, isCompleted && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}>
+                <Text style={[styles.taskTitle, isVisuallyCompleted && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}>
                   {task.title}
                 </Text>
                 <Text style={[styles.taskTime, selected && styles.taskTimeSelected]}>
@@ -88,10 +114,10 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id); }}
+              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id, !isVisuallyCompleted, task); }}
               activeOpacity={0.7}
             >
-              {isCompleted ? (
+              {isVisuallyCompleted ? (
                 <Icon name="checkmark-circle" size={24} color={selected ? '#FFFFFF' : COLORS.primaryDark} />
               ) : (
                 <Icon name="ellipse-outline" size={24} color={selected ? '#FFFFFF' : COLORS.textSecondary} />

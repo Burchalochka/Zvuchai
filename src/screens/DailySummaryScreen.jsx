@@ -50,7 +50,7 @@ const formatMinutes = (totalMinutes) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
-  const { tasks: allTasks, toggleTaskComplete, deleteTask, rescheduleTask } = useTasks();
+  const { tasks: allTasks, setTaskCompleted, deleteTask, rescheduleTask } = useTasks();
   const { selectedDate, todayKyiv } = useSelectedDate();
 
   const [localTasks, setLocalTasks] = useState([]);
@@ -83,14 +83,16 @@ const DailySummaryScreen = ({ visible, onClose }) => {
   const stats = getDayStats(localTasks, { applyAutoDone, now: statsNow });
   const workedLabel = formatMinutes(stats.actualMinutes);
 
-  const handleToggle = (id) => {
-    // Persist completion state via context/storage so HomeScreen reflects it too.
-    toggleTaskComplete(id);
-    // Keep local UI responsive; effect will resync from context shortly after.
+  const handleToggle = (id, nextCompleted) => {
+    setTaskCompleted(id, nextCompleted);
     setLocalTasks((prev) =>
       prev.map((t) =>
         t.id === id
-          ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' }
+          ? {
+            ...t,
+            status: nextCompleted ? 'completed' : 'pending',
+            autoDoneOverride: nextCompleted ? 'completed' : 'pending',
+          }
           : t
       )
     );

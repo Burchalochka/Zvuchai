@@ -19,9 +19,8 @@ import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { getTasksForDate } from '../services/DataLayerService';
 import { getDayStats } from '../services/DaySummaryService';
 
-// Must match bottom tab bar height in `src/navigation/AppNavigator.jsx`
 const TAB_BAR_HEIGHT = 80;
-const TAB_BAR_EXTRA_BG = 90; // cover rounding/shadows below the bar
+const TAB_BAR_EXTRA_BG = 90;
 
 const toDateKey = (d) => {
   if (!d) return null;
@@ -35,7 +34,18 @@ const toDateKey = (d) => {
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const { tasks, habits, toggleTaskComplete, toggleHabitComplete, deleteTask, updateTask, reorderTasksForDate } = useTasks();
+  const {
+    tasks,
+    habits,
+    toggleTaskComplete,
+    toggleHabitComplete,
+    setTaskCompleted,
+    setHabitCompleted,
+    deleteTask,
+    rescheduleTask,
+    updateTask,
+    reorderTasksForDate,
+  } = useTasks();
   const { language } = useLanguage();
   const { selectedDate, todayKyiv } = useSelectedDate();
   useModal();
@@ -44,7 +54,7 @@ const HomeScreen = () => {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [isDailySummaryVisible, setIsDailySummaryVisible] = useState(false);
   const [calendarMenuVisible, setCalendarMenuVisible] = useState(false);
-  const [calendarViewMode, setCalendarViewMode] = useState('day'); // week | month | day | threeDays
+  const [calendarViewMode, setCalendarViewMode] = useState('day');
   const [actionsTarget, setActionsTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -66,22 +76,7 @@ const HomeScreen = () => {
     (h) => h && h.date === selectedKey && !h.deletedAt && !h.archived,
   );
 
-  // (no dev logs)
-  useEffect(() => {
-    if (!__DEV__) return;
-    if (activeTab !== 'tasks') return;
-    const first = (tasksForDay || [])[0];
-    console.log('[HomeScreen][tasks] selectedKey=', selectedKey, 'tasksForDay=', (tasksForDay || []).length);
-    console.log('[HomeScreen][tasks] first=', first ? {
-      id: first.id,
-      title: first.title,
-      startTime: first.startTime,
-      endTime: first.endTime,
-      date: first.date,
-      type: first.type,
-      status: first.status,
-    } : null);
-  }, [activeTab, selectedKey, tasksForDay]);
+
 
   const sortedTasks = [...tasksForDay].sort((a, b) => {
     const aIdx = Number.isFinite(a?.sortIndex) ? a.sortIndex : null;
@@ -104,7 +99,6 @@ const HomeScreen = () => {
     return (aHours || 0) * 60 + (aMinutes || 0) - (bHours || 0) * 60 - (bMinutes || 0);
   });
 
-  // const currentItems = activeTab === 'tasks' ? sortedTasks : sortedHabits;
 
   const { applyAutoDone, statsNow } = (() => {
     const t = todayKyiv || new Date();
@@ -140,7 +134,11 @@ const HomeScreen = () => {
       <TaskTimelineItem
         task={item}
         selected={selectedItemId === item.id}
-        onToggleComplete={activeTab === 'tasks' ? toggleTaskComplete : toggleHabitComplete}
+        onToggleComplete={(id, nextCompleted) => (
+          activeTab === 'tasks'
+            ? setTaskCompleted(id, nextCompleted)
+            : setHabitCompleted(id, nextCompleted)
+        )}
         onOpenActions={(t) => setActionsTarget(t)}
       />
     </TouchableOpacity>
@@ -155,7 +153,7 @@ const HomeScreen = () => {
       <TaskTimelineItem
         task={item}
         selected={selectedItemId === item.id}
-        onToggleComplete={toggleTaskComplete}
+        onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
         onOpenActions={(t) => setActionsTarget(t)}
       />
     </TouchableOpacity>
@@ -240,6 +238,9 @@ const HomeScreen = () => {
                     onPressItem={(item) => setEditTarget(item)}
                     onLongPressItem={(item) => setActionsTarget(item)}
                     onToggleComplete={toggleTaskComplete}
+                    onSetCompleted={setTaskCompleted}
+                    onUpdateItem={updateTask}
+                    onRescheduleItem={rescheduleTask}
                     bottomPadding={scrollBottomPadding}
                   />
                 ) : (
@@ -258,6 +259,9 @@ const HomeScreen = () => {
                     onPressItem={(item) => setEditTarget(item)}
                     onLongPressItem={(item) => setActionsTarget(item)}
                     onToggleComplete={toggleHabitComplete}
+                    onSetCompleted={setHabitCompleted}
+                    onUpdateItem={updateTask}
+                    onRescheduleItem={rescheduleTask}
                     bottomPadding={scrollBottomPadding}
                   />
                 ) : (
@@ -777,6 +781,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 0,
     paddingHorizontal: 0,
     paddingBottom: 0,
+    position: 'relative',
+    zIndex: 100,
+    elevation: 20,
   },
   segmentedWrapper: {
     position: 'relative',
@@ -786,6 +793,8 @@ const styles = StyleSheet.create({
     marginRight: 0,
     marginTop: 0,
     alignSelf: 'center',
+    zIndex: 101,
+    elevation: 21,
   },
   segmentedBaseBg: {
     position: 'absolute',

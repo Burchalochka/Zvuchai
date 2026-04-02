@@ -35,7 +35,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const { tasks, habits, goals, addTask, addHabit, addGoal } = useTasks();
   const { language } = useLanguage();
   const { selectedDate } = useSelectedDate();
-  const [step, setStep] = useState('type'); // 'type' or 'form'
+  const [step, setStep] = useState('type');
   const [itemType, setItemType] = useState(null);
   
   const today = new Date();
@@ -83,13 +83,12 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [currentPlayerType, setCurrentPlayerType] = useState(null);
   const playbackListenerRef = useRef(null);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-  const [timePickerTarget, setTimePickerTarget] = useState(null); // 'start' | 'end'
+  const [timePickerTarget, setTimePickerTarget] = useState(null);
   const [timePickerHourIdx, setTimePickerHourIdx] = useState(9);
   const [timePickerMinuteIdx, setTimePickerMinuteIdx] = useState(0);
   const [conflictDialog, setConflictDialog] = useState(null);
   
   const themeColors = [
-    // Existing palette
     '#E8E0D5',
     '#FFE5B4',
     '#E0D5FF',
@@ -273,7 +272,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         Voice.onSpeechError = handleSpeechError;
         Voice.onSpeechEnd = handleSpeechEnd;
       } catch (e) {
-        // Voice native module may be unavailable
       }
     }
     return () => {
@@ -281,7 +279,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         try {
           Voice.destroy().then(() => Voice.removeAllListeners?.()).catch(() => {});
         } catch (e) {
-          // ignore
         }
       }
       audioRecorderPlayer.stopRecorder().catch(() => {});
@@ -568,17 +565,15 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     const startMin = toMinutes(startHHMM);
     if (startMin === null) return null;
 
-    const step = 5; // minutes
+    const step = 5;
     for (let m = startMin; m <= 1440 - durationMinutes; m += step) {
       const candidateStartISO = `${dateKey}T${formatHHMM(m)}:00`;
 
-      // Dead zones
       const overlapsDeadZone = deadZones.some((dz) =>
         checkTimeOverlap(candidateStartISO, durationMinutes, dz),
       );
       if (overlapsDeadZone) continue;
 
-      // Existing tasks as zones
       const overlapsTask = asZones.some((z) =>
         checkTimeOverlap(candidateStartISO, durationMinutes, z),
       );
@@ -630,7 +625,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     const formattedEndTime = formatTimeInput(endTime);
 
     if (!noDeadline) {
-      // Validate format and logical order (end must be after start)
       const startValid = validateTime(formattedStartTime);
       const endValid = validateTime(formattedEndTime);
       const duration =
@@ -656,7 +650,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       if (itemType === 'task') {
         try {
           const result = await createTaskWithBackend(item);
-          // Persisted to storage by service; also sync to in-memory context.
           pushTaskToState(result);
         } catch (err) {
           if (err?.code === 'DEAD_ZONE_CONFLICT') {
@@ -669,7 +662,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
             return;
           }
           if (err?.code === 'TASK_OVERLAP') {
-            // Ask the user: add in parallel on same time, place nearby, or reschedule.
             setConflictDialog({
               kind: 'task_overlap',
               title: 'Час уже зайнятий',
@@ -684,7 +676,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       } else if (itemType === 'habit') {
         const habit = {
           ...item,
-          // habits use the same shape in this app (date + times + status)
           id: Date.now().toString(),
           createdAt: new Date().toISOString(),
           type: 'habit',
@@ -1444,7 +1435,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         </View>
       </Modal>
 
-      {/* Conflict dialog (custom design) */}
       <Modal
         visible={!!conflictDialog}
         transparent
@@ -1540,12 +1530,10 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    // Ensure backdrop doesn't steal touches from sheet on Android.
     zIndex: 0,
     elevation: 0,
   },
   modalContent: {
-    // Match Home screen palette (warm base, light panel)
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -1774,7 +1762,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
-    // On Android, fall back to system font to ensure Cyrillic glyphs render.
     fontFamily: Platform.OS === 'android' ? undefined : 'Montserrat-Regular',
     minHeight: 48,
     borderWidth: 1,
@@ -1926,7 +1913,6 @@ const styles = StyleSheet.create({
   },
   conflictMessage: {
     fontSize: FONTS.sizes.md,
-    // Use Montserrat Medium to avoid missing Cyrillic glyphs on Android builds.
     fontFamily: FONTS.medium,
     color: COLORS.text,
     textAlign: 'center',

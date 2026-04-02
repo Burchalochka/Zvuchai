@@ -19,7 +19,6 @@ export const TasksProvider = ({ children }) => {
   const [goals, setGoals] = useState([]);
   const loaded = useRef(false);
 
-  // Load from storage on mount (with optional seed injection)
   useEffect(() => {
     if (DEV_CONFIG.SEED_ENABLED) {
       const shouldSeed =
@@ -47,7 +46,6 @@ export const TasksProvider = ({ children }) => {
     loaded.current = true;
   }, []);
 
-  // Persist on every change (guarded until after load)
   useEffect(() => { if (loaded.current) TaskStorage.saveAll(tasks); }, [tasks]);
   useEffect(() => { if (loaded.current) HabitStorage.saveAll(habits); }, [habits]);
   useEffect(() => { if (loaded.current) GoalStorage.saveAll(goals); }, [goals]);
@@ -72,7 +70,25 @@ export const TasksProvider = ({ children }) => {
         return {
           ...task,
           status: isCompleted ? 'pending' : 'completed',
+          autoDoneOverride: isCompleted ? 'pending' : 'completed',
           completedAt: isCompleted ? null : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
+  const setTaskCompleted = (taskId, completed) => {
+    if (!taskId) return;
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id !== taskId) return task;
+        const nextCompleted = !!completed;
+        return {
+          ...task,
+          status: nextCompleted ? 'completed' : 'pending',
+          autoDoneOverride: nextCompleted ? 'completed' : 'pending',
+          completedAt: nextCompleted ? (task.completedAt || new Date().toISOString()) : null,
           updatedAt: new Date().toISOString(),
         };
       })
@@ -87,7 +103,25 @@ export const TasksProvider = ({ children }) => {
         return {
           ...habit,
           status: isCompleted ? 'pending' : 'completed',
+          autoDoneOverride: isCompleted ? 'pending' : 'completed',
           completedAt: isCompleted ? null : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
+  const setHabitCompleted = (habitId, completed) => {
+    if (!habitId) return;
+    setHabits((prev) =>
+      prev.map((habit) => {
+        if (habit.id !== habitId) return habit;
+        const nextCompleted = !!completed;
+        return {
+          ...habit,
+          status: nextCompleted ? 'completed' : 'pending',
+          autoDoneOverride: nextCompleted ? 'completed' : 'pending',
+          completedAt: nextCompleted ? (habit.completedAt || new Date().toISOString()) : null,
           updatedAt: new Date().toISOString(),
         };
       })
@@ -173,7 +207,9 @@ export const TasksProvider = ({ children }) => {
         addHabit,
         addGoal,
         toggleTaskComplete,
+        setTaskCompleted,
         toggleHabitComplete,
+        setHabitCompleted,
         toggleGoalComplete,
         deleteTask,
         rescheduleTask,

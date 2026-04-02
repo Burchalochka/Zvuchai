@@ -95,7 +95,40 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
     onRescheduleRequest(task);
   };
 
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const toDateKey = (d) => {
+    if (!d) return null;
+    const x = new Date(d);
+    if (isNaN(x.getTime())) return null;
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, '0');
+    const day = String(x.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const parseHHMM = (value) => {
+    if (!value || typeof value !== 'string' || !value.includes(':')) return null;
+    const [hRaw, mRaw] = value.split(':');
+    const h = Number(hRaw);
+    const m = Number(mRaw);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    return h * 60 + m;
+  };
   const isCompleted = task.status === 'completed';
+  const manualOverride = task?.autoDoneOverride;
+  const selectedKey = task?.date || null;
+  const todayKey = toDateKey(now);
+  const isToday = !!selectedKey && selectedKey === todayKey;
+  const isPastDay = !!selectedKey && !!todayKey && selectedKey < todayKey;
+  const endMin = parseHHMM(task.endTime);
+  const autoDoneByTime = isPastDay || (isToday && endMin !== null && nowMin >= endMin);
+  const autoDone = autoDoneByTime && manualOverride !== 'pending';
+  const isVisuallyCompleted =
+    manualOverride === 'pending'
+      ? false
+      : manualOverride === 'completed'
+        ? true
+        : (isCompleted || autoDone);
   const firstTag = Array.isArray(task.tags) && task.tags.length > 0 ? task.tags[0] : null;
 
   return (
@@ -124,10 +157,10 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
       >
         <TouchableOpacity
           style={styles.checkbox}
-          onPress={() => onToggle(task.id)}
+          onPress={() => onToggle(task.id, !isVisuallyCompleted, task)}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          {isCompleted ? (
+          {isVisuallyCompleted ? (
             <View style={styles.checkboxFilled}>
               <Icon name="checkmark" size={16} color="#FFFFFF" />
             </View>
@@ -137,7 +170,7 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
         </TouchableOpacity>
 
         <View style={styles.textBlock}>
-          <Text style={[styles.title, isCompleted && styles.titleDone]} numberOfLines={1}>
+          <Text style={[styles.title, isVisuallyCompleted && styles.titleDone]} numberOfLines={1}>
             {task.title}
           </Text>
           {task.startTime || task.endTime ? (

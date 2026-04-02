@@ -1,27 +1,14 @@
 import type { Task } from '../types';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface DayStats {
-  /** Tasks with status === 'completed'. */
   completedCount: number;
-  /** Total tasks passed in (all statuses). */
   totalCount: number;
-  /** completedCount / totalCount * 100, rounded. 0 when totalCount is 0. */
   completionRate: number;
-  /** Sum of (endTime − startTime) in minutes for completed tasks that have
-   *  both startTime and endTime set. */
   actualMinutes: number;
-  /** Sum of estimatedDuration (minutes) for completed tasks where the field
-   *  is not null. */
   estimatedMinutes: number;
-  /** Number of distinct tag strings across all completed tasks. */
   uniqueTagsCount: number;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Parse "HH:MM" → total minutes from midnight. Returns null on bad input. */
 function parseMinutes(time: string | undefined | null): number | null {
   if (!time) return null;
   const parts = time.split(':');
@@ -36,15 +23,6 @@ function getNowMinutes(now: Date): number {
   return now.getHours() * 60 + now.getMinutes();
 }
 
-// ─── Service ──────────────────────────────────────────────────────────────────
-
-/**
- * Computes daily statistics from a pre-filtered array of tasks.
- *
- * Pure function — no storage access, no side effects.
- *
- * @param tasks Tasks for a single day (already filtered by date by the caller).
- */
 export function getDayStats(
   tasks: Task[],
   opts?: { applyAutoDone?: boolean; now?: Date }
@@ -65,6 +43,8 @@ export function getDayStats(
   const applyAutoDone = !!opts?.applyAutoDone;
 
   const completed = tasks.filter((t) => {
+    if (t.autoDoneOverride === 'pending') return false;
+    if (t.autoDoneOverride === 'completed') return true;
     if (t.status === 'completed') return true;
     if (!applyAutoDone) return false;
     const end = parseMinutes(t.endTime);
@@ -72,7 +52,6 @@ export function getDayStats(
     return end <= nowMin;
   });
 
-  // ── actualMinutes ────────────────────────────────────────────────────────────
   let actualMinutes = 0;
   for (const task of completed) {
     const start = parseMinutes(task.startTime);
@@ -82,7 +61,6 @@ export function getDayStats(
     }
   }
 
-  // ── estimatedMinutes ─────────────────────────────────────────────────────────
   let estimatedMinutes = 0;
   for (const task of completed) {
     if (task.estimatedDuration !== null && task.estimatedDuration !== undefined) {
@@ -90,7 +68,6 @@ export function getDayStats(
     }
   }
 
-  // ── uniqueTagsCount ──────────────────────────────────────────────────────────
   const tagSet = new Set<string>();
   for (const task of completed) {
     if (Array.isArray(task.tags)) {
