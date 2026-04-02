@@ -32,6 +32,10 @@ function parseMinutes(time: string | undefined | null): number | null {
   return h * 60 + m;
 }
 
+function getNowMinutes(now: Date): number {
+  return now.getHours() * 60 + now.getMinutes();
+}
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 /**
@@ -41,7 +45,10 @@ function parseMinutes(time: string | undefined | null): number | null {
  *
  * @param tasks Tasks for a single day (already filtered by date by the caller).
  */
-export function getDayStats(tasks: Task[]): DayStats {
+export function getDayStats(
+  tasks: Task[],
+  opts?: { applyAutoDone?: boolean; now?: Date }
+): DayStats {
   if (tasks.length === 0) {
     return {
       completedCount: 0,
@@ -53,7 +60,17 @@ export function getDayStats(tasks: Task[]): DayStats {
     };
   }
 
-  const completed = tasks.filter((t) => t.status === 'completed');
+  const now = opts?.now || new Date();
+  const nowMin = getNowMinutes(now);
+  const applyAutoDone = !!opts?.applyAutoDone;
+
+  const completed = tasks.filter((t) => {
+    if (t.status === 'completed') return true;
+    if (!applyAutoDone) return false;
+    const end = parseMinutes(t.endTime);
+    if (end === null) return false;
+    return end <= nowMin;
+  });
 
   // ── actualMinutes ────────────────────────────────────────────────────────────
   let actualMinutes = 0;

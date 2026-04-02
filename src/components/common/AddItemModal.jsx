@@ -89,6 +89,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [conflictDialog, setConflictDialog] = useState(null);
   
   const themeColors = [
+    // Existing palette
     '#E8E0D5',
     '#FFE5B4',
     '#E0D5FF',
@@ -126,6 +127,18 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     };
   };
 
+  const toMinutesHHMM = (value) => {
+    const { h, m } = parseHHMM(value);
+    return h * 60 + m;
+  };
+
+  const formatHHMMClamped = (totalMinutes) => {
+    const clamped = Math.max(0, Math.min(23 * 60 + 59, Math.round(totalMinutes)));
+    const hh = Math.floor(clamped / 60);
+    const mm = clamped % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  };
+
   const openTimePicker = (target) => {
     const current = target === 'start' ? startTime : endTime;
     const { h, m } = parseHHMM(current);
@@ -137,7 +150,16 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
 
   const confirmTimePicker = () => {
     const value = `${HOURS[timePickerHourIdx]}:${MINUTES[timePickerMinuteIdx]}`;
-    if (timePickerTarget === 'start') setStartTime(value);
+    if (timePickerTarget === 'start') {
+      const prevStartMin = toMinutesHHMM(startTime);
+      const prevEndMin = toMinutesHHMM(endTime);
+      const prevDuration = prevEndMin > prevStartMin ? (prevEndMin - prevStartMin) : 60;
+      const duration = Math.max(5, prevDuration);
+      const nextStartMin = toMinutesHHMM(value);
+      const nextEndMin = nextStartMin + duration;
+      setStartTime(value);
+      setEndTime(formatHHMMClamped(nextEndMin));
+    }
     if (timePickerTarget === 'end') setEndTime(value);
     setIsTimePickerVisible(false);
     setTimePickerTarget(null);

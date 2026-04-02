@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Modal, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableFlatList from 'react-native-draggable-flatlist';
+import { useNavigation } from '@react-navigation/native';
 import Header from '../components/common/Header';
 import Calendar from '../components/calendar/Calendar';
 import TaskTimelineItem from '../components/tasks/TaskTimelineItem';
+import DayTimeline from '../components/day/DayTimeline';
 import DailySummaryScreen from './DailySummaryScreen';
 import DeleteTaskModal from '../components/modals/DeleteTaskModal';
 import EditTaskModal from '../components/modals/EditTaskModal';
@@ -17,7 +19,9 @@ import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { getTasksForDate } from '../services/DataLayerService';
 import { getDayStats } from '../services/DaySummaryService';
 
-const TAB_BAR_HEIGHT = 74;
+// Must match bottom tab bar height in `src/navigation/AppNavigator.jsx`
+const TAB_BAR_HEIGHT = 80;
+const TAB_BAR_EXTRA_BG = 90; // cover rounding/shadows below the bar
 
 const toDateKey = (d) => {
   if (!d) return null;
@@ -30,9 +34,10 @@ const toDateKey = (d) => {
 };
 
 const HomeScreen = () => {
+  const navigation = useNavigation();
   const { tasks, habits, toggleTaskComplete, toggleHabitComplete, deleteTask, updateTask, reorderTasksForDate } = useTasks();
   const { language } = useLanguage();
-  const { selectedDate } = useSelectedDate();
+  const { selectedDate, todayKyiv } = useSelectedDate();
   useModal();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('tasks');
@@ -43,7 +48,7 @@ const HomeScreen = () => {
   const [actionsTarget, setActionsTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + SPACING.lg;
+  const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_EXTRA_BG;
 
   useEffect(() => {
     setSelectedItemId(null);
@@ -101,7 +106,23 @@ const HomeScreen = () => {
 
   // const currentItems = activeTab === 'tasks' ? sortedTasks : sortedHabits;
 
-  const stats = getDayStats(tasksForDay);
+  const { applyAutoDone, statsNow } = (() => {
+    const t = todayKyiv || new Date();
+    const todayKey = toDateKey(t);
+    const isToday =
+      selectedDate?.getFullYear?.() === t.getFullYear() &&
+      selectedDate?.getMonth?.() === t.getMonth() &&
+      selectedDate?.getDate?.() === t.getDate();
+    const isPastDay = !!selectedKey && !!todayKey && selectedKey < todayKey;
+    if (isPastDay) {
+      const endOfDay = new Date(t);
+      endOfDay.setHours(23, 59, 0, 0);
+      return { applyAutoDone: true, statsNow: endOfDay };
+    }
+    return { applyAutoDone: isToday, statsNow: new Date() };
+  })();
+  const stats = getDayStats(tasksForDay, { applyAutoDone, now: statsNow });
+
 
   const taskCountsByDate = (tasks || []).reduce((acc, task) => {
     const key = task && task.date;
@@ -142,6 +163,11 @@ const HomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* White underlay behind the bottom tab bar (Home only) */}
+      <View
+        pointerEvents="none"
+        style={[styles.bottomWhiteUnderlay, { height: scrollBottomPadding }]}
+      />
       <Header onCalendarPress={() => setCalendarMenuVisible(true)} />
       <View style={styles.content}>
         {/* Статистика — натискання відкриває DailySummary */}
@@ -204,7 +230,47 @@ const HomeScreen = () => {
               </View>
             </View>
           </View>
-          {activeTab === 'tasks' ? (
+          {calendarViewMode === 'day' ? (
+            <View style={styles.list}>
+              {activeTab === 'tasks' ? (
+                sortedTasks.length ? (
+                  <DayTimeline
+                    dateKey={selectedKey}
+                    items={sortedTasks}
+                    onPressItem={(item) => setEditTarget(item)}
+                    onLongPressItem={(item) => setActionsTarget(item)}
+                    onToggleComplete={toggleTaskComplete}
+                    bottomPadding={scrollBottomPadding}
+                  />
+                ) : (
+                  <View style={[styles.tasksPlaceholder, { paddingBottom: scrollBottomPadding }]}>
+                    <View style={styles.placeholderInner}>
+                      <Text style={styles.habitsHint}>{getTranslation('startJourney', language)}</Text>
+                      <Text style={styles.habitsHintSub}>{getTranslation('addFirst', language)}</Text>
+                    </View>
+                  </View>
+                )
+              ) : (
+                sortedHabits.length ? (
+                  <DayTimeline
+                    dateKey={selectedKey}
+                    items={sortedHabits}
+                    onPressItem={(item) => setEditTarget(item)}
+                    onLongPressItem={(item) => setActionsTarget(item)}
+                    onToggleComplete={toggleHabitComplete}
+                    bottomPadding={scrollBottomPadding}
+                  />
+                ) : (
+                  <View style={[styles.tasksPlaceholder, { paddingBottom: scrollBottomPadding }]}>
+                    <View style={styles.placeholderInner}>
+                      <Text style={styles.habitsHint}>{getTranslation('startJourney', language)}</Text>
+                      <Text style={styles.habitsHintSub}>{getTranslation('addFirst', language)}</Text>
+                    </View>
+                  </View>
+                )
+              )}
+            </View>
+          ) : activeTab === 'tasks' ? (
             Platform.OS === 'android' ? (
               <FlatList
                 data={sortedTasks}
@@ -401,8 +467,9 @@ const HomeScreen = () => {
                 calendarViewMode === 'week' ? styles.calendarMenuItemActive : null,
               ]}
               onPress={() => {
-                setCalendarViewMode('week');
+                setCalendarViewMode('day');
                 setCalendarMenuVisible(false);
+                navigation.navigate('WeekSchedule');
               }}
               activeOpacity={0.8}
             >
@@ -504,6 +571,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    position: 'relative',
+  },
+  bottomWhiteUnderlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
   },
   calendarMenuBackdrop: {
     flex: 1,
@@ -690,6 +765,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginTop: SPACING.sm,
     minHeight: 260,
+    borderTopLeftRadius: 35,
+    borderTopRightRadius: 35,
+    overflow: 'hidden',
   },
   tabsPanel: {
     backgroundColor: COLORS.panelLight,

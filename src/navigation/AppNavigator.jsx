@@ -9,6 +9,7 @@ import GoalsScreen from '../screens/GoalsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import InboxScreen from '../screens/InboxScreen';
 import SplashScreen from '../screens/SplashScreen';
+import WeekScheduleScreen from '../screens/WeekScheduleScreen';
 import { useLanguage } from '../context/LanguageContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
@@ -16,9 +17,9 @@ import { COLORS, SPACING, FONTS } from '../styles/theme';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const TabBarBackground = () => (
+const TabBarBackground = ({ color }) => (
   <View
-    style={[styles.tabBgWrapper, { backgroundColor: COLORS.panel }]}
+    style={[styles.tabBgWrapper, { backgroundColor: color || COLORS.panel }]}
     pointerEvents="none"
   />
 );
@@ -33,6 +34,7 @@ const AppNavigator = () => {
       tabBar={customTabBar}
       screenOptions={{
         headerShown: false,
+        sceneContainerStyle: { backgroundColor: COLORS.background },
         tabBarStyle: {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
@@ -44,7 +46,7 @@ const AppNavigator = () => {
           borderTopRightRadius: 40,
           overflow: 'hidden',
         },
-        tabBarBackground: () => <TabBarBackground />,
+        tabBarBackground: () => <TabBarBackground color={COLORS.panel} />,
         tabBarActiveTintColor: COLORS.textDark,
         tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarLabelStyle: {
@@ -107,7 +109,8 @@ const AppNavigator = () => {
               {getTranslation('home', language)}
             </Text>
           ),
-          tabBarBackground: () => <TabBarBackground />,
+          // Keep tab bar background consistent (original color)
+          tabBarBackground: () => <TabBarBackground color={COLORS.panel} />,
           tabBarIcon: () => (
             <Image
               source={require('../assets/icons/9e70623cbed2c3b364216a3f594eec13751b4b0f.png')}
@@ -187,6 +190,16 @@ const AppNavigator = () => {
               resizeMode="contain"
             />
           ),
+        }}
+      />
+
+      {/* Hidden tab screen: opened from Home calendar menu */}
+      <Tab.Screen
+        name="WeekSchedule"
+        component={WeekScheduleScreen}
+        options={{
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tab.Navigator>

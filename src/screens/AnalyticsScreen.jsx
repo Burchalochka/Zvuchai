@@ -4,16 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../components/common/Header';
 import { useLanguage } from '../context/LanguageContext';
 import { getTranslation } from '../utils/translations';
-import { COLORS, SPACING, FONTS } from '../styles/theme';
+import { COLORS, FONTS } from '../styles/theme';
 
 const AnalyticsScreen = () => {
   const { language } = useLanguage();
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Header />
       <View style={styles.content}>
-        <Text style={styles.text}>{getTranslation('analyticsScreen', language)}</Text>
+        <Text style={styles.text}>
+          {getTranslation('analytics', language) || 'Аналітика'}
+        </Text>
       </View>
     </SafeAreaView>
   );

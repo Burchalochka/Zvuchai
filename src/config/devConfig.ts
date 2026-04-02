@@ -10,7 +10,7 @@
 export const DEV_CONFIG = {
   // ── Seed data ───────────────────────────────────────────────────────────────
   /** Set to true to inject mock data for manual testing. */
-  SEED_ENABLED: true,
+  SEED_ENABLED: false,
 
   /**
    * Controls what happens when the app launches with SEED_ENABLED = true.
@@ -22,7 +22,7 @@ export const DEV_CONFIG = {
    * 'always' — wipe all data and re-inject seed on every launch.
    *            Use for demos, screenshots, or when you need a clean known state.
    */
-  SEED_MODE: 'always' as 'once' | 'always',
+  SEED_MODE: 'once' as 'once' | 'always',
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   /**

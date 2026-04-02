@@ -51,7 +51,7 @@ const formatMinutes = (totalMinutes) => {
 const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
   const { tasks: allTasks, toggleTaskComplete, deleteTask, rescheduleTask } = useTasks();
-  const { selectedDate } = useSelectedDate();
+  const { selectedDate, todayKyiv } = useSelectedDate();
 
   const [localTasks, setLocalTasks] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -64,7 +64,23 @@ const DailySummaryScreen = ({ visible, onClose }) => {
     setLocalTasks(filtered);
   }, [allTasks, selectedDate]);
 
-  const stats = getDayStats(localTasks);
+  const { applyAutoDone, statsNow } = (() => {
+    const t = todayKyiv || new Date();
+    const todayKey = toDateKey(t);
+    const selectedKey = toDateKey(selectedDate);
+    const isToday =
+      selectedDate?.getFullYear?.() === t.getFullYear() &&
+      selectedDate?.getMonth?.() === t.getMonth() &&
+      selectedDate?.getDate?.() === t.getDate();
+    const isPastDay = !!selectedKey && !!todayKey && selectedKey < todayKey;
+    if (isPastDay) {
+      const endOfDay = new Date(t);
+      endOfDay.setHours(23, 59, 0, 0);
+      return { applyAutoDone: true, statsNow: endOfDay };
+    }
+    return { applyAutoDone: isToday, statsNow: new Date() };
+  })();
+  const stats = getDayStats(localTasks, { applyAutoDone, now: statsNow });
   const workedLabel = formatMinutes(stats.actualMinutes);
 
   const handleToggle = (id) => {

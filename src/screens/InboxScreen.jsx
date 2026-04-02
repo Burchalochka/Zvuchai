@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Header from '../components/common/Header';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { useTasks } from '../context/TasksContext';
@@ -75,13 +76,27 @@ const SUB_TABS = {
 };
 
 const InboxScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
-  const { tasks } = useTasks();
+  const { tasks, toggleTaskComplete } = useTasks();
 
   const [activeMainTab, setActiveMainTab] = useState(MAIN_TABS.NO_DEADLINE);
   const [activeSubTab, setActiveSubTab] = useState(SUB_TABS.ALL);
   const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
   const [isSideMenuVisible, setIsSideMenuVisible] = useState(false);
+
+  useEffect(() => {
+    const wantOpen = !!route?.params?.openSideMenu;
+    if (!wantOpen) return;
+    setIsSideMenuVisible(true);
+    // Reset param so it can be triggered again.
+    try {
+      navigation?.setParams?.({ openSideMenu: false });
+    } catch {
+      // no-op
+    }
+  }, [navigation, route?.params?.openSideMenu, route?.params?._ts]);
 
   const handleMainTabChange = (tabKey) => {
     setActiveMainTab(tabKey);
@@ -109,7 +124,7 @@ const InboxScreen = () => {
         title: String(t.title || ''),
         startTime: undefined,
         durationMinutes: undefined,
-        status: 'pending',
+        status: t.status || 'pending',
         confidenceScore: undefined,
         deadlineType: 'none',
         dateInfo: 'Без дедлайну',
@@ -280,6 +295,7 @@ const InboxScreen = () => {
               task={item}
               showConfidence={activeMainTab === MAIN_TABS.AI_UNSURE}
               mainTab={activeMainTab}
+              onToggleComplete={(id) => toggleTaskComplete(id)}
             />
           )}
           contentContainerStyle={[
@@ -325,9 +341,10 @@ const InboxScreen = () => {
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
+const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
   const isNoDeadline = mainTab === MAIN_TABS.NO_DEADLINE;
   const hasConfidence = showConfidence && typeof task.confidenceScore === 'number';
+  const isCompleted = task?.status === 'completed';
 
   if (isNoDeadline) {
     // "Без дедлайну" layout: content left, action buttons top-right stacked
@@ -349,8 +366,16 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
 
         {/* Top-right action buttons */}
         <View style={styles.noDeadlineActions}>
-          <TouchableOpacity style={styles.circleActionBtn}>
-            <Icon name="close-outline" size={18} color="#514134" />
+          <TouchableOpacity
+            style={styles.circleActionBtn}
+            onPress={() => onToggleComplete?.(task.id)}
+            activeOpacity={0.8}
+          >
+            <Icon
+              name={isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
+              size={18}
+              color="#514134"
+            />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.circleActionBtn, { marginTop: 6 }]}>
             <Icon name="pencil-outline" size={16} color="#514134" />
