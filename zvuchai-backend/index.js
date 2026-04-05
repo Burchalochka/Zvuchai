@@ -47,6 +47,10 @@ JSON SCHEMA:
 // ==========================================
 // ЕНДПОІНТ 1: ГОЛОС У ТЕКСТ (Через Groq)
 // ==========================================
+app.get('/health', (req, res) => {
+  res.status(200).send('OK - Server is alive!');
+});
+
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "Аудіофайл не знайдено" });
 

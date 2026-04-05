@@ -1,0 +1,5 @@
+# Zvuchno Project Rules
+1. Stack: React Native.
+2. Status: Final integration (Sprint 5). Completed screens: Onboarding, "Inbox" (Skrynka), Voice Recording.
+3. Main Rule: NEVER write or modify code without a prior plan.
+4. Always propose an architectural solution in a step-by-step format first. Wait for my "OK" before starting to edit files.
