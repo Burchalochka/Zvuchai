@@ -17,18 +17,11 @@ import { FONTS, SPACING, COLORS } from '../styles/theme';
 import { useTasks } from '../context/TasksContext';
 import { useSelectedDate } from '../context/SelectedDateContext';
 import { getDayStats } from '../services/DaySummaryService';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const toDateKey = (d) => {
-  if (!d) return null;
-  const date = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(date.getTime())) return null;
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+import {
+  toLocalDateKey,
+  resolveCalendarListDateKey,
+  isItemOnCalendarDay,
+} from '../utils/calendarDay';
 
 const formatDate = (d) => {
   const day = d.getDate();
@@ -47,37 +40,41 @@ const formatMinutes = (totalMinutes) => {
   return m > 0 ? `${h}г ${m}хв` : `${h}г`;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
 const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
-  const { tasks: allTasks } = useTasks();
-  const { selectedDate } = useSelectedDate();
+  const { tasks: allTasks, setTaskCompleted, deleteTask, rescheduleTask } = useTasks();
+  const { selectedDate, todayCalendar } = useSelectedDate();
 
   const [localTasks, setLocalTasks] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
 
-  // Sync local list when context or selected date changes
   useEffect(() => {
-    const key = toDateKey(selectedDate);
-    const filtered = (allTasks || []).filter((t) => t && t.date === key);
+    const key = resolveCalendarListDateKey(selectedDate, todayCalendar);
+    const filtered = (allTasks || []).filter((t) => isItemOnCalendarDay(t, key));
     setLocalTasks(filtered);
-  }, [allTasks, selectedDate]);
+  }, [allTasks, selectedDate, todayCalendar]);
 
   const stats = getDayStats(localTasks);
   const workedLabel = formatMinutes(stats.actualMinutes);
 
-  const handleToggle = (id) => {
+  const handleToggle = (id, nextCompleted) => {
+    setTaskCompleted(id, nextCompleted);
     setLocalTasks((prev) =>
       prev.map((t) =>
         t.id === id
-          ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' }
+          ? {
+            ...t,
+            status: nextCompleted ? 'completed' : 'pending',
+            autoDoneOverride: nextCompleted ? 'completed' : 'pending',
+          }
           : t
       )
     );
   };
 
   const handleDeleteConfirm = (id) => {
+    deleteTask(id);
     setLocalTasks((prev) => prev.filter((t) => t.id !== id));
     setDeleteTarget(null);
   };
@@ -96,6 +93,10 @@ const DailySummaryScreen = ({ visible, onClose }) => {
       setRescheduleTarget(null);
       return;
     }
+    const newKey = toLocalDateKey(newDate);
+    if (newKey) {
+      rescheduleTask(id, newKey);
+    }
     setLocalTasks((prev) => prev.filter((t) => t.id !== id));
     setRescheduleTarget(null);
   };
@@ -110,23 +111,18 @@ const DailySummaryScreen = ({ visible, onClose }) => {
     >
       <StatusBar backgroundColor="rgba(0,0,0,0.3)" barStyle="light-content" />
 
-      {/* Напівпрозорий фон — натиснути щоб закрити */}
       <TouchableOpacity
         style={styles.dimOverlay}
         activeOpacity={1}
         onPress={onClose}
       />
 
-      {/* Основна картка (займає більшу частину екрану) */}
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-        {/* Ручка */}
         <View style={styles.handle} />
 
-        {/* Заголовок */}
         <Text style={styles.title}>Підсумки дня</Text>
         <Text style={styles.dateLabel}>{formatDate(selectedDate)}</Text>
 
-        {/* Статистика */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{stats.completedCount}</Text>
@@ -142,7 +138,6 @@ const DailySummaryScreen = ({ visible, onClose }) => {
           </View>
         </View>
 
-        {/* Список завдань */}
         <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
@@ -160,7 +155,6 @@ const DailySummaryScreen = ({ visible, onClose }) => {
           ))}
         </ScrollView>
 
-        {/* Кнопка завершити день */}
         <TouchableOpacity style={styles.finishBtn} onPress={onClose}>
           <Text style={styles.finishBtnText}>Завершити день</Text>
         </TouchableOpacity>
@@ -174,7 +168,6 @@ const DailySummaryScreen = ({ visible, onClose }) => {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Попап перенесення */}
       <RescheduleTaskModal
         visible={!!rescheduleTarget}
         task={rescheduleTarget}

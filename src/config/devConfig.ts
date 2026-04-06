@@ -6,11 +6,14 @@
  *   1. Open this file.
  *   2. Change the value of the flag you need.
  *   3. Reload the app (press 'r' in Metro or restart).
+ *
+ * Day timeline (шкала, пунктир, «зараз») — лише режим «День» у меню календаря,
+ * не «Тиждень / Місяць / 3 дні». Після змін у таймлайні перезапусти Metro з reset cache.
  */
 export const DEV_CONFIG = {
   // ── Seed data ───────────────────────────────────────────────────────────────
   /** Set to true to inject mock data for manual testing. */
-  SEED_ENABLED: true,
+  SEED_ENABLED: false,
 
   /**
    * Controls what happens when the app launches with SEED_ENABLED = true.
@@ -22,7 +25,7 @@ export const DEV_CONFIG = {
    * 'always' — wipe all data and re-inject seed on every launch.
    *            Use for demos, screenshots, or when you need a clean known state.
    */
-  SEED_MODE: 'always' as 'once' | 'always',
+  SEED_MODE: 'once' as 'once' | 'always',
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   /**
@@ -34,4 +37,12 @@ export const DEV_CONFIG = {
 
   /** Language used when SKIP_ONBOARDING is true. */
   DEFAULT_LANGUAGE: 'uk' as 'uk' | 'en',
+
+  // ── Backend ────────────────────────────────────────────────────────────────
+  /** Backend server URL for audio processing and AI parsing */
+  BACKEND_URL: 'http://192.168.1.110:3000',
+
+  // ── Day timeline UI (experimental, вимкнено за рішенням продукту) ───────────
+  // /** Час на високих картках справа над галочкою замість рядка зліва. */
+  // TALL_CARD_TIME_BY_CHECK: true,
 };

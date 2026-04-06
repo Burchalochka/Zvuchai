@@ -74,15 +74,11 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
-# Visual Studio Code
+# Visual Studio Code / editor (keep local only)
+.vscode/
 
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-!*.code-workspace
+# Screenshots or temp files with editor-prefixed names (do not commit)
+.cursor_*.png
 
 # Built Visual Studio Code Extensions
 *.vsix

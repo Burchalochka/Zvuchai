@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,14 @@ const buildMonthDays = (date) => {
 const RescheduleTaskModal = ({ visible, task, onConfirm, onCancel }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
+
+  useEffect(() => {
+    if (!visible || !task?.date) return;
+    const [y, mo, d] = String(task.date).split('-').map(Number);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return;
+    setCurrentMonth(new Date(y, mo - 1, 1));
+    setSelectedDate(null);
+  }, [visible, task?.id, task?.date]);
 
   const days = useMemo(() => buildMonthDays(currentMonth), [currentMonth]);
   const today = new Date();

@@ -1,5 +1,3 @@
-// ─── Shared ──────────────────────────────────────────────────────────────────
-
 export type ItemType = 'task' | 'habit' | 'goal';
 export type ItemStatus = 'pending' | 'completed' | 'skipped' | 'requires_review';
 export type Priority = 'low' | 'medium' | 'high';
@@ -19,15 +17,18 @@ export interface BaseItem {
   title: string;
   description: string;
   date: string | null;           // 'YYYY-MM-DD'
-  startTime: string;             // 'HH:MM'
-  endTime: string;               // 'HH:MM'
+  startDate: string | null;      // 'YYYY-MM-DD' for date ranges
+  endDate: string | null;        // 'YYYY-MM-DD' for date ranges
+  startTime: string | null;      // 'HH:MM' or null for inbox tasks
+  endTime: string | null;        // 'HH:MM' or null for inbox tasks
   status: ItemStatus;
   themeColor: string;
   priority: Priority;
   difficulty: Difficulty;
   estimatedDuration: number | null;
   dueDate: string | null;        // 'YYYY-MM-DD'
-  deadline: string | null;       // 'YYYY-MM-DD'
+  deadline: string | null;       // 'YYYY-MM-DD HH:MM'
+  isInbox: boolean;              // true if task has no specific time
   tags: string[];
   reminder: Reminder;
   linkedGoalId: string | null;
@@ -37,21 +38,19 @@ export interface BaseItem {
   deletedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  sortIndex?: number | null;
+  autoDoneOverride?: 'pending' | 'completed' | null;
 }
-
-// ─── Task ────────────────────────────────────────────────────────────────────
 
 export interface Task extends BaseItem {
   type: 'task';
 }
 
-// ─── Habit ───────────────────────────────────────────────────────────────────
-
 export type RecurrenceType = 'daily' | 'weekly' | 'custom';
 
 export interface Recurrence {
   type: RecurrenceType;
-  days: number[]; // weekday indices; 0 = Sunday
+  days: number[];
 }
 
 export interface Habit extends BaseItem {
@@ -59,10 +58,8 @@ export interface Habit extends BaseItem {
   recurrence: Recurrence;
   streak: number;
   bestStreak: number;
-  completionDates: string[]; // 'YYYY-MM-DD'[]
+  completionDates: string[];
 }
-
-// ─── Goal ────────────────────────────────────────────────────────────────────
 
 export interface Milestone {
   id: string;
@@ -75,7 +72,7 @@ export interface GoalTarget {
   value: number;
   unit: string;
   progress: number;
-  targetDate: string | null; // 'YYYY-MM-DD'
+  targetDate: string | null;
   milestones: Milestone[];
 }
 
@@ -84,14 +81,18 @@ export interface Goal extends BaseItem {
   target: GoalTarget;
 }
 
-// ─── DeadZone & UserPreferences ──────────────────────────────────────────────
-
 export interface DeadZone {
   id: string;
+<<<<<<< onboarding
   name: string;      // наприклад: 'Сон', 'Особистий час', 'Спорт'
   startTime: string; // 'HH:mm'
   endTime: string;   // 'HH:mm'
   color?: string;    // Колір для відображення на діаграмі (наприклад, '#FFB6C1')
+=======
+  name: string;
+  startTime: string;
+  endTime: string;
+>>>>>>> develop
 }
 
 // Типи для нових відповідей з онбордингу
@@ -103,6 +104,7 @@ export type FatigueLevel = 'rarely' | 'sometimes' | 'almost_daily';
 
 export interface UserPreferences {
   deadZones: DeadZone[];
+<<<<<<< onboarding
   eveningReportTime: string; // за замовчуванням '21:00'
   
   // Нові поля з онбордингу
@@ -117,3 +119,7 @@ export interface UserPreferences {
   fatigueLevel: FatigueLevel | null;
   isOnboardingCompleted: boolean; // Прапорець, щоб знати, чи показувати онбординг знову
 }
+=======
+  eveningReportTime: string;
+}
+>>>>>>> develop
