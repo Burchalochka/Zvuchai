@@ -1,4 +1,12 @@
-import React, { createContext, useEffect, useMemo, useRef, useState, useContext } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useContext,
+} from 'react';
 import { AppState } from 'react-native';
 
 const SelectedDateContext = createContext();
@@ -46,14 +54,20 @@ export const SelectedDateProvider = ({ children }) => {
   const [followKyivToday, setFollowKyivToday] = useState(true);
   const lastKyivTodayRef = useRef(getKyivToday());
 
-  const setSelectedDate = (nextDate) => {
-    const next = nextDate instanceof Date ? nextDate : new Date(nextDate);
-    const kyivToday = getKyivToday();
-    setFollowKyivToday(sameCalendarDay(next, kyivToday));
-    setSelectedDateState(next);
-  };
+  const setSelectedDate = useCallback((next) => {
+    setSelectedDateState((prev) => {
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      const resolvedDate = resolved instanceof Date ? resolved : new Date(resolved);
+      return Number.isNaN(resolvedDate.getTime()) ? prev : resolvedDate;
+    });
+  }, []);
 
   const todayKyiv = useMemo(() => getKyivToday(), [selectedDate]);
+
+  useEffect(() => {
+    const kyivToday = getKyivToday();
+    setFollowKyivToday(sameCalendarDay(selectedDate, kyivToday));
+  }, [selectedDate]);
 
   useEffect(() => {
     // On app foreground: if we're following "today", resync to current Kyiv day.

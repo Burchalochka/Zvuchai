@@ -38,7 +38,7 @@ function makePayload(
     startTime,
     endTime: '10:00',
     status: 'pending',
-    themeColor: '#E8E0D5',
+    themeColor: '#FCFFC6',
     priority: 'medium',
     difficulty: 'medium',
     estimatedDuration: 30,

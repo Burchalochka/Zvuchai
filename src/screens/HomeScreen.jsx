@@ -1,8 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Modal, Platform } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  FlatList,
+  Modal,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import { useNavigation } from '@react-navigation/native';
+import Svg, { Line } from 'react-native-svg';
 import Header from '../components/common/Header';
 import Calendar from '../components/calendar/Calendar';
 import TaskTimelineItem from '../components/tasks/TaskTimelineItem';
@@ -10,6 +21,7 @@ import DayTimeline from '../components/day/DayTimeline';
 import DailySummaryScreen from './DailySummaryScreen';
 import DeleteTaskModal from '../components/modals/DeleteTaskModal';
 import EditTaskModal from '../components/modals/EditTaskModal';
+import RescheduleTaskModal from '../components/modals/RescheduleTaskModal';
 import { useTasks } from '../context/TasksContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useSelectedDate } from '../context/SelectedDateContext';
@@ -18,19 +30,26 @@ import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { getTasksForDate } from '../services/DataLayerService';
 import { getDayStats } from '../services/DaySummaryService';
+import {
+  toDateKey,
+  resolveCalendarListDateKey,
+  isItemOnCalendarDay,
+  itemScheduledDayKey,
+  buildTaskCountsByDateForCalendar,
+} from '../utils/calendarDay';
+import {
+  TIMELINE_SCALE_COLUMN_WIDTH_PX,
+  TIMELINE_RAIL_CENTER_X_PX,
+  TIMELINE_RAIL_STROKE_WIDTH_PX,
+  TIMELINE_RAIL_AXIS_STROKE,
+} from '../constants/timelineLayout';
 
 const TAB_BAR_HEIGHT = 80;
 const TAB_BAR_EXTRA_BG = 90;
+const TIMELINE_SCROLL_BOTTOM_EXTRA = 0;
 
-const toDateKey = (d) => {
-  if (!d) return null;
-  const x = new Date(d);
-  if (isNaN(x.getTime())) return null;
-  const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, '0');
-  const day = String(x.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+const DAY_TABS_SEGMENT_H = 48;
+const DAY_TABS_RAIL_BRIDGE_H = DAY_TABS_SEGMENT_H + SPACING.md;
 
 const HomeScreen = () => {
   const navigation = useNavigation();
@@ -42,9 +61,13 @@ const HomeScreen = () => {
     setTaskCompleted,
     setHabitCompleted,
     deleteTask,
+    deleteHabit,
     rescheduleTask,
+    rescheduleHabit,
     updateTask,
+    updateHabit,
     reorderTasksForDate,
+    reorderHabitsForDate,
   } = useTasks();
   const { language } = useLanguage();
   const { selectedDate, todayKyiv } = useSelectedDate();
@@ -55,10 +78,16 @@ const HomeScreen = () => {
   const [isDailySummaryVisible, setIsDailySummaryVisible] = useState(false);
   const [calendarMenuVisible, setCalendarMenuVisible] = useState(false);
   const [calendarViewMode, setCalendarViewMode] = useState('day');
+  const [calendarStripMode, setCalendarStripMode] = useState('week');
   const [actionsTarget, setActionsTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState(null);
   const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + TAB_BAR_EXTRA_BG;
+  const timelineScrollBottomPad = TAB_BAR_HEIGHT + insets.bottom + TIMELINE_SCROLL_BOTTOM_EXTRA;
+  const { height: windowHeight } = useWindowDimensions();
+  const isCalendarStripExpanded = calendarStripMode === 'month';
+  const tasksBlockMaxHeightWhenMonthOpen = Math.max(220, Math.min(380, Math.round(windowHeight * 0.36)));
 
   useEffect(() => {
     setSelectedItemId(null);
@@ -68,13 +97,13 @@ const HomeScreen = () => {
     getTasksForDate(selectedDate);
   }, [selectedDate]);
 
-  const selectedKey = toDateKey(selectedDate);
-  const tasksForDay = (tasks || []).filter(
-    (t) => t && t.date === selectedKey && !t.deletedAt && !t.archived,
-  );
-  const habitsForDay = (habits || []).filter(
-    (h) => h && h.date === selectedKey && !h.deletedAt && !h.archived,
-  );
+  useEffect(() => {
+    if (calendarStripMode === 'year') setCalendarStripMode('month');
+  }, [calendarStripMode]);
+
+  const selectedKey = resolveCalendarListDateKey(selectedDate, todayKyiv);
+  const tasksForDay = (tasks || []).filter((t) => isItemOnCalendarDay(t, selectedKey));
+  const habitsForDay = (habits || []).filter((h) => isItemOnCalendarDay(h, selectedKey));
 
 
 
@@ -92,6 +121,11 @@ const HomeScreen = () => {
   });
 
   const sortedHabits = [...habitsForDay].sort((a, b) => {
+    const aIdx = Number.isFinite(a?.sortIndex) ? a.sortIndex : null;
+    const bIdx = Number.isFinite(b?.sortIndex) ? b.sortIndex : null;
+    if (aIdx !== null && bIdx !== null) return aIdx - bIdx;
+    if (aIdx !== null) return -1;
+    if (bIdx !== null) return 1;
     const aStr = (a && a.startTime) ? String(a.startTime) : '09:00';
     const bStr = (b && b.startTime) ? String(b.startTime) : '09:00';
     const [aHours, aMinutes] = aStr.split(':').map(Number);
@@ -99,76 +133,142 @@ const HomeScreen = () => {
     return (aHours || 0) * 60 + (aMinutes || 0) - (bHours || 0) * 60 - (bMinutes || 0);
   });
 
+  const hasAnyScheduledTaskElsewhere = useMemo(
+    () =>
+      (tasks || []).some((t) => {
+        if (!t || t.deletedAt || t.archived) return false;
+        return !!itemScheduledDayKey(t.date);
+      }),
+    [tasks],
+  );
 
-  const { applyAutoDone, statsNow } = (() => {
-    const t = todayKyiv || new Date();
-    const todayKey = toDateKey(t);
-    const isToday =
-      selectedDate?.getFullYear?.() === t.getFullYear() &&
-      selectedDate?.getMonth?.() === t.getMonth() &&
-      selectedDate?.getDate?.() === t.getDate();
-    const isPastDay = !!selectedKey && !!todayKey && selectedKey < todayKey;
-    if (isPastDay) {
-      const endOfDay = new Date(t);
-      endOfDay.setHours(23, 59, 0, 0);
-      return { applyAutoDone: true, statsNow: endOfDay };
+  const hasAnyScheduledHabitElsewhere = useMemo(
+    () =>
+      (habits || []).some((h) => {
+        if (!h || h.deletedAt || h.archived) return false;
+        return !!itemScheduledDayKey(h.date);
+      }),
+    [habits],
+  );
+
+  const emptyTasksHint = useMemo(() => {
+    if (sortedTasks.length > 0) return null;
+    if (hasAnyScheduledTaskElsewhere) {
+      return {
+        title: getTranslation('emptyDayNoTasksTitle', language),
+        sub: getTranslation('emptyDayNoTasksHint', language),
+      };
     }
-    return { applyAutoDone: isToday, statsNow: new Date() };
-  })();
-  const stats = getDayStats(tasksForDay, { applyAutoDone, now: statsNow });
+    return {
+      title: getTranslation('startJourneyTasks', language),
+      sub: getTranslation('addFirstTask', language),
+    };
+  }, [sortedTasks.length, hasAnyScheduledTaskElsewhere, language]);
 
+  const emptyHabitsHint = useMemo(() => {
+    if (sortedHabits.length > 0) return null;
+    if (hasAnyScheduledHabitElsewhere) {
+      return {
+        title: getTranslation('emptyDayNoHabitsTitle', language),
+        sub: getTranslation('emptyDayNoHabitsHint', language),
+      };
+    }
+    return {
+      title: getTranslation('startJourneyHabits', language),
+      sub: getTranslation('addFirstHabit', language),
+    };
+  }, [sortedHabits.length, hasAnyScheduledHabitElsewhere, language]);
 
-  const taskCountsByDate = (tasks || []).reduce((acc, task) => {
-    const key = task && task.date;
-    if (!key) return acc;
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
+  const showDayRailBridge =
+    calendarViewMode === 'day' &&
+    ((activeTab === 'tasks' && sortedTasks.length > 0) ||
+      (activeTab === 'habits' && sortedHabits.length > 0));
+
+  const listIsEmptyForActiveTab =
+    activeTab === 'tasks' ? sortedTasks.length === 0 : sortedHabits.length === 0;
+
+  const monthOpenListShellStyle =
+    isCalendarStripExpanded && listIsEmptyForActiveTab
+      ? {
+          flex: 0,
+          maxHeight: tasksBlockMaxHeightWhenMonthOpen,
+          minHeight: tasksBlockMaxHeightWhenMonthOpen,
+        }
+      : null;
+
+  const moveDayItemOrder = (item, delta) => {
+    if (!item || !selectedKey) return;
+    const isHabit = activeTab === 'habits';
+    const list = isHabit ? sortedHabits : sortedTasks;
+    const idx = list.findIndex((x) => x.id === item.id);
+    const j = idx + delta;
+    if (idx < 0 || j < 0 || j >= list.length) return;
+    const next = list.map((x) => x.id);
+    const tmp = next[idx];
+    next[idx] = next[j];
+    next[j] = tmp;
+    if (isHabit) reorderHabitsForDate(selectedKey, next);
+    else reorderTasksForDate(selectedKey, next);
+    setActionsTarget(null);
+  };
+
+  const stats = getDayStats(tasksForDay);
+
+  const taskCountsByDate = buildTaskCountsByDateForCalendar(tasks);
+
+  const handleRescheduleConfirm = (id, newDate) => {
+    const item = rescheduleTarget;
+    if (!item || String(item.id) !== String(id)) {
+      setRescheduleTarget(null);
+      return;
+    }
+    const newKey = toDateKey(newDate);
+    if (!newKey || newKey === item.date) {
+      setRescheduleTarget(null);
+      return;
+    }
+    if (item.type === 'habit') {
+      rescheduleHabit(id, newKey);
+    } else {
+      rescheduleTask(id, newKey);
+    }
+    setRescheduleTarget(null);
+  };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => setEditTarget(item)}
-      onLongPress={() => setActionsTarget(item)}
-    >
-      <TaskTimelineItem
-        task={item}
-        selected={selectedItemId === item.id}
-        onToggleComplete={(id, nextCompleted) => (
-          activeTab === 'tasks'
-            ? setTaskCompleted(id, nextCompleted)
-            : setHabitCompleted(id, nextCompleted)
-        )}
-        onOpenActions={(t) => setActionsTarget(t)}
-      />
-    </TouchableOpacity>
+    <TaskTimelineItem
+      task={item}
+      selected={selectedItemId === item.id}
+      onPressOpenEdit={() => setEditTarget(item)}
+      onLongPressCard={() => setActionsTarget(item)}
+      onToggleComplete={(id, nextCompleted) => (
+        activeTab === 'tasks'
+          ? setTaskCompleted(id, nextCompleted)
+          : setHabitCompleted(id, nextCompleted)
+      )}
+      onOpenActions={(t) => setActionsTarget(t)}
+    />
   );
 
   const renderDragItem = ({ item, drag }) => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => setEditTarget(item)}
-      onLongPress={drag}
-    >
-      <TaskTimelineItem
-        task={item}
-        selected={selectedItemId === item.id}
-        onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
-        onOpenActions={(t) => setActionsTarget(t)}
-      />
-    </TouchableOpacity>
+    <TaskTimelineItem
+      task={item}
+      selected={selectedItemId === item.id}
+      onPressOpenEdit={() => setEditTarget(item)}
+      onLongPressCard={drag}
+      onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
+      onOpenActions={(t) => setActionsTarget(t)}
+    />
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* White underlay behind the bottom tab bar (Home only) */}
       <View
         pointerEvents="none"
         style={[styles.bottomWhiteUnderlay, { height: scrollBottomPadding }]}
       />
       <Header onCalendarPress={() => setCalendarMenuVisible(true)} />
       <View style={styles.content}>
-        {/* Статистика — натискання відкриває DailySummary */}
         <TouchableOpacity
           style={styles.statsCard}
           onPress={() => setIsDailySummaryVisible(true)}
@@ -199,13 +299,29 @@ const HomeScreen = () => {
 
         <Calendar
           taskCountsByDate={taskCountsByDate}
-          viewMode={calendarViewMode === 'month' ? 'month' : 'week'}
-          onViewModeChange={(m) => setCalendarViewMode(m)}
+          viewMode={calendarStripMode}
+          onViewModeChange={(m) => {
+            if (m === 'week' || m === 'month') setCalendarStripMode(m);
+          }}
         />
 
-        <View style={styles.whiteSection}>
-          <View style={styles.tabsPanel}>
-            <View style={styles.segmentedWrapper}>
+        <View
+          style={[
+            styles.whiteSectionShell,
+            isCalendarStripExpanded && listIsEmptyForActiveTab
+              ? styles.whiteSectionUnderOpenMonth
+              : styles.whiteSectionExpand,
+          ]}
+        >
+          <View
+            style={[styles.tabsPanel, isCalendarStripExpanded && styles.tabsPanelMonthStripOpen]}
+          >
+            <View
+              style={[
+                styles.segmentedWrapper,
+                isCalendarStripExpanded && styles.segmentedWrapperMonthStripOpen,
+              ]}
+            >
               <View style={styles.segmentedBaseBg} pointerEvents="none" />
               <View
                 style={[
@@ -214,6 +330,21 @@ const HomeScreen = () => {
                 ]}
                 pointerEvents="none"
               />
+              {showDayRailBridge ? (
+                <View style={styles.tabsRailUnderSegment} pointerEvents="none">
+                  <Svg width={TIMELINE_SCALE_COLUMN_WIDTH_PX} height={DAY_TABS_RAIL_BRIDGE_H}>
+                    <Line
+                      x1={TIMELINE_RAIL_CENTER_X_PX}
+                      y1={DAY_TABS_SEGMENT_H}
+                      x2={TIMELINE_RAIL_CENTER_X_PX}
+                      y2={DAY_TABS_RAIL_BRIDGE_H}
+                      stroke={TIMELINE_RAIL_AXIS_STROKE}
+                      strokeWidth={TIMELINE_RAIL_STROKE_WIDTH_PX}
+                      strokeLinecap="butt"
+                    />
+                  </Svg>
+                </View>
+              ) : null}
               <View style={styles.segmentedButtons}>
                 <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('tasks')}>
                   <Text style={activeTab === 'tasks' ? styles.segmentActiveText : styles.segmentText}>
@@ -229,9 +360,15 @@ const HomeScreen = () => {
             </View>
           </View>
           {calendarViewMode === 'day' ? (
-            <View style={styles.list}>
+            <View
+              style={[
+                styles.listExpand,
+                styles.dayTimelineHost,
+                monthOpenListShellStyle,
+              ]}
+            >
               {activeTab === 'tasks' ? (
-                sortedTasks.length ? (
+                sortedTasks.length > 0 ? (
                   <DayTimeline
                     dateKey={selectedKey}
                     items={sortedTasks}
@@ -241,37 +378,51 @@ const HomeScreen = () => {
                     onSetCompleted={setTaskCompleted}
                     onUpdateItem={updateTask}
                     onRescheduleItem={rescheduleTask}
-                    bottomPadding={scrollBottomPadding}
+                    bottomPadding={timelineScrollBottomPad}
                   />
                 ) : (
-                  <View style={[styles.tasksPlaceholder, { paddingBottom: scrollBottomPadding }]}>
-                    <View style={styles.placeholderInner}>
-                      <Text style={styles.habitsHint}>{getTranslation('startJourney', language)}</Text>
-                      <Text style={styles.habitsHintSub}>{getTranslation('addFirst', language)}</Text>
+                  <View
+                    style={[
+                      styles.dayFirstRunPlaceholder,
+                      isCalendarStripExpanded && styles.dayFirstRunPlaceholderUnderOpenMonth,
+                      { paddingBottom: scrollBottomPadding },
+                    ]}
+                  >
+                    <View style={styles.dayEmptyMessageInner}>
+                      <Text style={styles.dayEmptyHintTitle}>
+                        {emptyTasksHint.title}
+                      </Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint.sub}</Text>
                     </View>
                   </View>
                 )
+              ) : sortedHabits.length > 0 ? (
+                <DayTimeline
+                  dateKey={selectedKey}
+                  items={sortedHabits}
+                  onPressItem={(item) => setEditTarget(item)}
+                  onLongPressItem={(item) => setActionsTarget(item)}
+                  onToggleComplete={toggleHabitComplete}
+                  onSetCompleted={setHabitCompleted}
+                  onUpdateItem={updateHabit}
+                  onRescheduleItem={rescheduleHabit}
+                  bottomPadding={timelineScrollBottomPad}
+                />
               ) : (
-                sortedHabits.length ? (
-                  <DayTimeline
-                    dateKey={selectedKey}
-                    items={sortedHabits}
-                    onPressItem={(item) => setEditTarget(item)}
-                    onLongPressItem={(item) => setActionsTarget(item)}
-                    onToggleComplete={toggleHabitComplete}
-                    onSetCompleted={setHabitCompleted}
-                    onUpdateItem={updateTask}
-                    onRescheduleItem={rescheduleTask}
-                    bottomPadding={scrollBottomPadding}
-                  />
-                ) : (
-                  <View style={[styles.tasksPlaceholder, { paddingBottom: scrollBottomPadding }]}>
-                    <View style={styles.placeholderInner}>
-                      <Text style={styles.habitsHint}>{getTranslation('startJourney', language)}</Text>
-                      <Text style={styles.habitsHintSub}>{getTranslation('addFirst', language)}</Text>
-                    </View>
+                <View
+                  style={[
+                    styles.dayFirstRunPlaceholder,
+                    isCalendarStripExpanded && styles.dayFirstRunPlaceholderUnderOpenMonth,
+                    { paddingBottom: scrollBottomPadding },
+                  ]}
+                >
+                  <View style={styles.dayEmptyMessageInner}>
+                    <Text style={styles.dayEmptyHintTitle}>
+                      {emptyHabitsHint.title}
+                    </Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint.sub}</Text>
                   </View>
-                )
+                </View>
               )}
             </View>
           ) : activeTab === 'tasks' ? (
@@ -280,24 +431,25 @@ const HomeScreen = () => {
                 data={sortedTasks}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={renderItem}
-                style={styles.list}
+                style={[styles.listExpand, monthOpenListShellStyle]}
                 contentContainerStyle={[
                   styles.listContent,
+                  listIsEmptyForActiveTab &&
+                    (isCalendarStripExpanded
+                      ? styles.listContentEmptyUnderOpenMonth
+                      : styles.listContentEmptyCentered),
                   { paddingBottom: scrollBottomPadding },
-                  !sortedTasks.length ? styles.listContentEmpty : null,
                 ]}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
                 overScrollMode="never"
                 ListEmptyComponent={
                   <View style={styles.tasksPlaceholder}>
-                    <View style={styles.placeholderInner}>
-                      <Text style={styles.habitsHint}>
-                        {getTranslation('startJourney', language)}
+                    <View style={styles.monthEmptyMessageInner}>
+                      <Text style={styles.dayEmptyHintTitle}>
+                        {emptyTasksHint.title}
                       </Text>
-                      <Text style={styles.habitsHintSub}>
-                        {getTranslation('addFirst', language)}
-                      </Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint.sub}</Text>
                     </View>
                   </View>
                 }
@@ -314,13 +466,26 @@ const HomeScreen = () => {
                 removeClippedSubviews={false}
                 initialNumToRender={12}
                 windowSize={7}
-                style={styles.list}
+                style={[styles.listExpand, monthOpenListShellStyle]}
                 contentContainerStyle={[
                   styles.listContent,
+                  listIsEmptyForActiveTab &&
+                    (isCalendarStripExpanded
+                      ? styles.listContentEmptyUnderOpenMonth
+                      : styles.listContentEmptyCentered),
                   { paddingBottom: scrollBottomPadding },
-                  !sortedTasks.length ? styles.listContentEmpty : null,
                 ]}
                 showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                  <View style={styles.tasksPlaceholder}>
+                    <View style={styles.monthEmptyMessageInner}>
+                      <Text style={styles.dayEmptyHintTitle}>
+                        {emptyTasksHint.title}
+                      </Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint.sub}</Text>
+                    </View>
+                  </View>
+                }
               />
             )
           ) : (
@@ -328,24 +493,25 @@ const HomeScreen = () => {
               data={sortedHabits}
               keyExtractor={(item) => String(item.id)}
               renderItem={renderItem}
-              style={styles.list}
+              style={[styles.listExpand, monthOpenListShellStyle]}
               contentContainerStyle={[
                 styles.listContent,
+                listIsEmptyForActiveTab &&
+                  (isCalendarStripExpanded
+                    ? styles.listContentEmptyUnderOpenMonth
+                    : styles.listContentEmptyCentered),
                 { paddingBottom: scrollBottomPadding },
-                !sortedHabits.length ? styles.listContentEmpty : null,
               ]}
               showsVerticalScrollIndicator={false}
               bounces={false}
               overScrollMode="never"
               ListEmptyComponent={
                 <View style={styles.tasksPlaceholder}>
-                  <View style={styles.placeholderInner}>
-                    <Text style={styles.habitsHint}>
-                      {getTranslation('startJourney', language)}
+                  <View style={styles.monthEmptyMessageInner}>
+                    <Text style={styles.dayEmptyHintTitle}>
+                      {emptyHabitsHint.title}
                     </Text>
-                    <Text style={styles.habitsHintSub}>
-                      {getTranslation('addFirst', language)}
-                    </Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint.sub}</Text>
                   </View>
                 </View>
               }
@@ -354,13 +520,11 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      {/* Екран підсумків дня */}
       <DailySummaryScreen
         visible={isDailySummaryVisible}
         onClose={() => setIsDailySummaryVisible(false)}
       />
 
-      {/* Actions (simple inline sheet) */}
       <Modal
         visible={!!actionsTarget}
         transparent
@@ -386,6 +550,25 @@ const HomeScreen = () => {
               >
                 <Text style={styles.actionsBtnText}>Редагувати</Text>
               </TouchableOpacity>
+              {calendarViewMode === 'day' &&
+              (activeTab === 'tasks' ? sortedTasks.length > 1 : sortedHabits.length > 1) ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionsBtn}
+                    onPress={() => moveDayItemOrder(actionsTarget, -1)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.actionsBtnText}>Вище в дні</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionsBtn}
+                    onPress={() => moveDayItemOrder(actionsTarget, 1)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.actionsBtnText}>Нижче в дні</Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
               <TouchableOpacity
                 style={[styles.actionsBtn, styles.actionsDeleteBtn]}
                 onPress={() => {
@@ -401,11 +584,25 @@ const HomeScreen = () => {
       </Modal>
 
       <EditTaskModal
+        key={editTarget?.id != null ? String(editTarget.id) : 'edit-closed'}
         visible={!!editTarget}
         task={editTarget}
         onCancel={() => setEditTarget(null)}
         onSave={(patch) => {
-          updateTask(editTarget.id, patch);
+          if (!editTarget) return;
+          if (editTarget.type === 'habit') {
+            updateHabit(editTarget.id, patch);
+          } else {
+            updateTask(editTarget.id, patch);
+          }
+          setEditTarget(null);
+        }}
+        onRequestDelete={() => {
+          setDeleteTarget(editTarget);
+          setEditTarget(null);
+        }}
+        onRequestReschedule={() => {
+          setRescheduleTarget(editTarget);
           setEditTarget(null);
         }}
       />
@@ -415,9 +612,21 @@ const HomeScreen = () => {
         task={deleteTarget}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={(id) => {
-          deleteTask(id);
+          const t = deleteTarget;
+          if (t?.type === 'habit') {
+            deleteHabit(id);
+          } else {
+            deleteTask(id);
+          }
           setDeleteTarget(null);
         }}
+      />
+
+      <RescheduleTaskModal
+        visible={!!rescheduleTarget}
+        task={rescheduleTarget}
+        onCancel={() => setRescheduleTarget(null)}
+        onConfirm={handleRescheduleConfirm}
       />
 
       <Modal
@@ -439,6 +648,7 @@ const HomeScreen = () => {
               ]}
               onPress={() => {
                 setCalendarViewMode('day');
+                setCalendarStripMode('week');
                 setCalendarMenuVisible(false);
               }}
               activeOpacity={0.8}
@@ -506,6 +716,7 @@ const HomeScreen = () => {
               ]}
               onPress={() => {
                 setCalendarViewMode('month');
+                setCalendarStripMode('month');
                 setCalendarMenuVisible(false);
               }}
               activeOpacity={0.8}
@@ -539,6 +750,7 @@ const HomeScreen = () => {
               ]}
               onPress={() => {
                 setCalendarViewMode('threeDays');
+                setCalendarStripMode('week');
                 setCalendarMenuVisible(false);
               }}
               activeOpacity={0.8}
@@ -651,18 +863,82 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
-  list: {
+  listExpand: {
     flex: 1,
+    minHeight: 0,
     marginTop: 0,
     backgroundColor: '#FFFFFF',
+    alignSelf: 'stretch',
+  },
+  dayTimelineHost: {
+    position: 'relative',
+    minHeight: 0,
+  },
+  dayFirstRunPlaceholder: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+  },
+  dayFirstRunPlaceholderUnderOpenMonth: {
+    flex: 1,
+    minHeight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: SPACING.lg,
+  },
+  dayEmptyMessageInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 360,
+    paddingHorizontal: SPACING.sm,
+  },
+  monthEmptyMessageInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 360,
+    paddingHorizontal: SPACING.sm,
+  },
+  dayEmptyHintTitle: {
+    fontSize: FONTS.sizes.md,
+    lineHeight: 22,
+    color: COLORS.textSecondary,
+    fontFamily: 'Montserrat-Medium',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
+  },
+  dayEmptyHintSub: {
+    fontSize: FONTS.sizes.sm,
+    lineHeight: 20,
+    marginTop: SPACING.xs,
+    color: '#898989',
+    fontFamily: 'Montserrat-Regular',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
   },
   listContent: {
     paddingHorizontal: SPACING.sm,
     paddingTop: SPACING.lg,
     backgroundColor: '#FFFFFF',
   },
-  listContentEmpty: {
+  listContentEmptyCentered: {
     flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: SPACING.md,
+  },
+  listContentEmptyUnderOpenMonth: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: SPACING.xl,
   },
   actionsBackdrop: {
     flex: 1,
@@ -760,18 +1036,27 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
     gap: SPACING.sm,
   },
-  whiteSection: {
-    flex: 1,
+  whiteSectionShell: {
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 0,
     paddingTop: 0,
     paddingBottom: 0,
     marginHorizontal: 0,
     marginTop: SPACING.sm,
-    minHeight: 260,
     borderTopLeftRadius: 35,
     borderTopRightRadius: 35,
     overflow: 'hidden',
+    alignSelf: 'stretch',
+  },
+  whiteSectionExpand: {
+    flex: 1,
+    minHeight: 260,
+  },
+  whiteSectionUnderOpenMonth: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flex: 0,
+    minHeight: 0,
   },
   tabsPanel: {
     backgroundColor: COLORS.panelLight,
@@ -783,7 +1068,23 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     position: 'relative',
     zIndex: 100,
-    elevation: 20,
+    elevation: 0,
+    overflow: 'visible',
+  },
+  tabsPanelMonthStripOpen: {
+    elevation: 0,
+  },
+  segmentedWrapperMonthStripOpen: {
+    elevation: 0,
+  },
+  tabsRailUnderSegment: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: TIMELINE_SCALE_COLUMN_WIDTH_PX,
+    height: DAY_TABS_RAIL_BRIDGE_H,
+    zIndex: 102,
+    elevation: 0,
   },
   segmentedWrapper: {
     position: 'relative',
@@ -794,7 +1095,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
     alignSelf: 'center',
     zIndex: 101,
-    elevation: 21,
+    elevation: 0,
   },
   segmentedBaseBg: {
     position: 'absolute',
@@ -870,47 +1171,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tasksPlaceholder: {
-    flex: 1,
-    marginTop: SPACING.lg,
-    padding: SPACING.xl,
-    minHeight: 120,
-  },
-  placeholderInner: {
-    flex: 1,
+    alignSelf: 'stretch',
+    width: '100%',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: FONTS.sizes.xs,
-    color: '#898989',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    fontFamily: 'Montserrat-Regular',
-  },
-  placeholderSubtext: {
-    fontSize: FONTS.sizes.xs,
-    color: '#898989',
-    marginTop: SPACING.xs,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    fontFamily: 'Montserrat-Regular',
-  },
-  habitsHint: {
-    fontSize: FONTS.sizes.xs,
-    color: '#898989',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    opacity: 1,
-    fontFamily: 'Montserrat-Regular',
-  },
-  habitsHintSub: {
-    fontSize: FONTS.sizes.xs,
-    color: '#898989',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    opacity: 1,
-    marginTop: SPACING.xs,
-    fontFamily: 'Montserrat-Regular',
   },
   tasksList: {
     marginTop: SPACING.lg,

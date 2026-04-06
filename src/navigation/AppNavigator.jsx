@@ -1,7 +1,7 @@
 import MicrophoneScreen from '../screens/MicrophoneScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../screens/HomeScreen';
@@ -41,10 +41,21 @@ const AppNavigator = () => {
           height: 80,
           paddingBottom: 12,
           paddingTop: 12,
-          elevation: 0,
-          borderTopLeftRadius: 40, // 50% от высоты панели (80)
+          borderTopLeftRadius: 40,
           borderTopRightRadius: 40,
-          overflow: 'hidden',
+          overflow: 'visible',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0.1,
+              shadowRadius: 14,
+            },
+            android: {
+              elevation: 12,
+            },
+            default: {},
+          }),
         },
         tabBarBackground: () => <TabBarBackground color={COLORS.panel} />,
         tabBarActiveTintColor: COLORS.textDark,

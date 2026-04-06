@@ -19,14 +19,7 @@ function parseMinutes(time: string | undefined | null): number | null {
   return h * 60 + m;
 }
 
-function getNowMinutes(now: Date): number {
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-export function getDayStats(
-  tasks: Task[],
-  opts?: { applyAutoDone?: boolean; now?: Date }
-): DayStats {
+export function getDayStats(tasks: Task[]): DayStats {
   if (tasks.length === 0) {
     return {
       completedCount: 0,
@@ -38,18 +31,16 @@ export function getDayStats(
     };
   }
 
-  const now = opts?.now || new Date();
-  const nowMin = getNowMinutes(now);
-  const applyAutoDone = !!opts?.applyAutoDone;
-
+  /**
+   * «Виконано» для статистики дня — лише ручна відмітка та override:
+   * - `autoDoneOverride === 'completed'` — явно зараховано.
+   * - `autoDoneOverride === 'pending'` — явно не зараховувати (навіть якщо `status === 'completed'`).
+   * - Інакше: `status === 'completed'`.
+   */
   const completed = tasks.filter((t) => {
     if (t.autoDoneOverride === 'pending') return false;
     if (t.autoDoneOverride === 'completed') return true;
-    if (t.status === 'completed') return true;
-    if (!applyAutoDone) return false;
-    const end = parseMinutes(t.endTime);
-    if (end === null) return false;
-    return end <= nowMin;
+    return t.status === 'completed';
   });
 
   let actualMinutes = 0;

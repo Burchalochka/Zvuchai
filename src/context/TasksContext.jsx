@@ -146,6 +146,20 @@ export const TasksProvider = ({ children }) => {
     );
   };
 
+  const rescheduleHabit = (habitId, newDateKey) => {
+    if (!newDateKey) return;
+    setHabits((prev) =>
+      prev.map((habit) => {
+        if (habit.id !== habitId) return habit;
+        return {
+          ...habit,
+          date: newDateKey,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
   const updateTask = (taskId, patch) => {
     if (!taskId || !patch) return;
     setTasks((prev) =>
@@ -153,6 +167,20 @@ export const TasksProvider = ({ children }) => {
         if (task.id !== taskId) return task;
         return {
           ...task,
+          ...patch,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
+  const updateHabit = (habitId, patch) => {
+    if (!habitId || !patch) return;
+    setHabits((prev) =>
+      prev.map((habit) => {
+        if (habit.id !== habitId) return habit;
+        return {
+          ...habit,
           ...patch,
           updatedAt: new Date().toISOString(),
         };
@@ -170,6 +198,20 @@ export const TasksProvider = ({ children }) => {
         const idx = indexById.get(String(t.id));
         if (idx === undefined) return t;
         return { ...t, sortIndex: idx, updatedAt: new Date().toISOString() };
+      })
+    );
+  };
+
+  const reorderHabitsForDate = (dateKey, orderedIds) => {
+    if (!dateKey || !Array.isArray(orderedIds)) return;
+    const indexById = new Map(orderedIds.map((id, idx) => [String(id), idx]));
+    setHabits((prev) =>
+      prev.map((h) => {
+        if (!h || h.type !== 'habit') return h;
+        if (h.date !== dateKey) return h;
+        const idx = indexById.get(String(h.id));
+        if (idx === undefined) return h;
+        return { ...h, sortIndex: idx, updatedAt: new Date().toISOString() };
       })
     );
   };
@@ -213,8 +255,11 @@ export const TasksProvider = ({ children }) => {
         toggleGoalComplete,
         deleteTask,
         rescheduleTask,
+        rescheduleHabit,
         updateTask,
+        updateHabit,
         reorderTasksForDate,
+        reorderHabitsForDate,
         deleteHabit,
         deleteGoal,
       }}
