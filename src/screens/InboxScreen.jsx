@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Header from '../components/common/Header';
 import { useTasks } from '../context/TasksContext';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
-import { useTasks } from '../context/TasksContext';
+
 
 const TAB_BAR_HEIGHT = 74;
 
