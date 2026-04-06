@@ -1,5 +1,3 @@
-// ─── Shared ──────────────────────────────────────────────────────────────────
-
 export type ItemType = 'task' | 'habit' | 'goal';
 export type ItemStatus = 'pending' | 'completed' | 'skipped' | 'requires_review';
 export type Priority = 'low' | 'medium' | 'high';
@@ -18,16 +16,16 @@ export interface BaseItem {
   type: ItemType;
   title: string;
   description: string;
-  date: string | null;           // 'YYYY-MM-DD'
-  startTime: string;             // 'HH:MM'
-  endTime: string;               // 'HH:MM'
+  date: string | null;
+  startTime: string;
+  endTime: string;
   status: ItemStatus;
   themeColor: string;
   priority: Priority;
   difficulty: Difficulty;
   estimatedDuration: number | null;
-  dueDate: string | null;        // 'YYYY-MM-DD'
-  deadline: string | null;       // 'YYYY-MM-DD'
+  dueDate: string | null;
+  deadline: string | null;
   tags: string[];
   reminder: Reminder;
   linkedGoalId: string | null;
@@ -37,23 +35,19 @@ export interface BaseItem {
   deletedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
-  /** Optional manual ordering inside a day (used for drag & drop). */
   sortIndex?: number | null;
+  autoDoneOverride?: 'pending' | 'completed' | null;
 }
-
-// ─── Task ────────────────────────────────────────────────────────────────────
 
 export interface Task extends BaseItem {
   type: 'task';
 }
 
-// ─── Habit ───────────────────────────────────────────────────────────────────
-
 export type RecurrenceType = 'daily' | 'weekly' | 'custom';
 
 export interface Recurrence {
   type: RecurrenceType;
-  days: number[]; // weekday indices; 0 = Sunday
+  days: number[];
 }
 
 export interface Habit extends BaseItem {
@@ -61,10 +55,8 @@ export interface Habit extends BaseItem {
   recurrence: Recurrence;
   streak: number;
   bestStreak: number;
-  completionDates: string[]; // 'YYYY-MM-DD'[]
+  completionDates: string[];
 }
-
-// ─── Goal ────────────────────────────────────────────────────────────────────
 
 export interface Milestone {
   id: string;
@@ -77,7 +69,7 @@ export interface GoalTarget {
   value: number;
   unit: string;
   progress: number;
-  targetDate: string | null; // 'YYYY-MM-DD'
+  targetDate: string | null;
   milestones: Milestone[];
 }
 
@@ -86,16 +78,14 @@ export interface Goal extends BaseItem {
   target: GoalTarget;
 }
 
-// ─── DeadZone & UserPreferences ──────────────────────────────────────────────
-
 export interface DeadZone {
   id: string;
-  name: string;      // e.g. 'Сон', 'Особистий час'
-  startTime: string; // 'HH:mm'
-  endTime: string;   // 'HH:mm'
+  name: string;
+  startTime: string;
+  endTime: string;
 }
 
 export interface UserPreferences {
   deadZones: DeadZone[];
-  eveningReportTime: string; // default '21:00'
+  eveningReportTime: string;
 }

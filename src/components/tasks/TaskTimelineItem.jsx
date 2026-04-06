@@ -1,19 +1,68 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import Svg, { Line } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS, SPACING, FONTS } from '../../styles/theme';
+import {
+  TIMELINE_HORIZONTAL_RHYTHM_PX,
+  TIMELINE_RAIL_STROKE_WIDTH_PX,
+  TIMELINE_RAIL_VIEW_LINE_PX,
+  TIMELINE_HOUR_LABEL_WIDTH_PX,
+  TIMELINE_RAIL_SIDE_GUTTER_PX,
+  TIMELINE_RAIL_STROKE,
+  TIMELINE_RAIL_AXIS_STROKE,
+} from '../../constants/timelineLayout';
 import { useLanguage } from '../../context/LanguageContext';
 import { getTranslation } from '../../utils/translations';
 
-const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) => {
+function TaskListConnectorLine() {
+  const [h, setH] = useState(1);
+  const w = TIMELINE_RAIL_VIEW_LINE_PX;
+  const cx = w / 2;
+  return (
+    <View
+      style={styles.connectorLine}
+      onLayout={(e) => {
+        const next = Math.round(e.nativeEvent.layout.height);
+        if (next > 0) setH(next);
+      }}
+    >
+      {h > 0 ? (
+        <Svg width={w} height={h}>
+          <Line
+            x1={cx}
+            y1={0}
+            x2={cx}
+            y2={h}
+            stroke={TIMELINE_RAIL_AXIS_STROKE}
+            strokeWidth={TIMELINE_RAIL_STROKE_WIDTH_PX}
+            strokeLinecap="butt"
+          />
+        </Svg>
+      ) : null}
+    </View>
+  );
+}
+
+const TaskTimelineItem = ({
+  task,
+  selected,
+  onToggleComplete,
+  onOpenActions,
+  onPressOpenEdit,
+  onLongPressCard,
+}) => {
   const { language } = useLanguage();
-  
+
   const parseTime = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
       return { hours: 0, minutes: 0 };
     }
     const [hours, minutes] = timeStr.split(':');
-    return { hours: parseInt(hours), minutes: parseInt(minutes) };
+    return {
+      hours: parseInt(String(hours).trim(), 10),
+      minutes: parseInt(String(minutes).trim(), 10),
+    };
   };
 
   const calculateDuration = (start, end) => {
@@ -37,11 +86,27 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
   };
 
   const formatTime = (timeStr) => {
-    return timeStr || '--:--';
+    if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
+      return timeStr ? String(timeStr) : '--:--';
+    }
+    const [hRaw, mRaw] = timeStr.split(':');
+    const h = Number(String(hRaw).trim());
+    const m = Number(String(mRaw).trim());
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return String(timeStr);
+    const hh = Math.max(0, Math.min(23, h));
+    const mm = Math.max(0, Math.min(59, m));
+    return `${hh}:${String(mm).padStart(2, '0')}`;
   };
 
   if (!task) return null;
   const isCompleted = task.status === 'completed';
+  const manualOverride = task?.autoDoneOverride;
+  const isVisuallyCompleted =
+    manualOverride === 'pending'
+      ? false
+      : manualOverride === 'completed'
+        ? true
+        : isCompleted;
   const duration = calculateDuration(task.startTime, task.endTime);
 
   return (
@@ -50,27 +115,43 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
         <Text style={styles.timeText}>{formatTime(task.startTime)}</Text>
       </View>
       <View style={styles.contentColumn}>
-        <View style={styles.connectorLine} />
-        <View style={[styles.taskCard, isCompleted && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
+        <TaskListConnectorLine />
+        <View style={[styles.taskCard, isVisuallyCompleted && styles.taskCardCompleted, selected && styles.taskCardSelected]}>
           <View style={styles.taskContent}>
-            <View style={styles.taskLeft}>
-              <View style={[styles.taskIconContainer, isCompleted && styles.taskIconContainerCompleted, selected && styles.taskIconContainerSelected]}>
-                <Icon
-                  name="people"
-                  size={18}
-                  color={selected ? '#FFFFFF' : (isCompleted ? COLORS.primaryStrong : COLORS.textSecondary)}
-                />
+            <TouchableOpacity
+              style={styles.taskLeftTouchable}
+              activeOpacity={0.88}
+              onPress={() => onPressOpenEdit?.(task)}
+              onLongPress={() => onLongPressCard?.(task)}
+              disabled={!onPressOpenEdit && !onLongPressCard}
+            >
+              <View style={styles.taskLeft}>
+                <View style={[styles.taskIconContainer, isCompleted && styles.taskIconContainerCompleted, selected && styles.taskIconContainerSelected]}>
+                  <Icon
+                    name="people"
+                    size={18}
+                    color={selected ? '#FFFFFF' : (isVisuallyCompleted ? COLORS.primaryStrong : COLORS.textSecondary)}
+                  />
+                </View>
+                <View style={styles.taskInfo}>
+                  <Text
+                    style={[styles.taskTitle, isVisuallyCompleted && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {task.title}
+                  </Text>
+                  <Text
+                    style={[styles.taskTime, selected && styles.taskTimeSelected]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {formatTime(task.startTime)}-{formatTime(task.endTime)}
+                    {duration ? ` (${duration})` : ''}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.taskInfo}>
-                <Text style={[styles.taskTitle, isCompleted && styles.taskTitleCompleted, selected && styles.taskTitleSelected]}>
-                  {task.title}
-                </Text>
-                <Text style={[styles.taskTime, selected && styles.taskTimeSelected]}>
-                  {formatTime(task.startTime)}-{formatTime(task.endTime)}
-                  {duration ? ` (${duration})` : ''}
-                </Text>
-              </View>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionsBtn}
               onPress={(e) => {
@@ -88,10 +169,10 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id); }}
+              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id, !isVisuallyCompleted, task); }}
               activeOpacity={0.7}
             >
-              {isCompleted ? (
+              {isVisuallyCompleted ? (
                 <Icon name="checkmark-circle" size={24} color={selected ? '#FFFFFF' : COLORS.primaryDark} />
               ) : (
                 <Icon name="ellipse-outline" size={24} color={selected ? '#FFFFFF' : COLORS.textSecondary} />
@@ -107,12 +188,12 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete, onOpenActions }) =
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginBottom: SPACING.md,
-    paddingRight: SPACING.md,
+    marginBottom: TIMELINE_HORIZONTAL_RHYTHM_PX * 2,
+    paddingRight: TIMELINE_HORIZONTAL_RHYTHM_PX * 2,
   },
   timeColumn: {
-    width: 60,
-    paddingRight: SPACING.sm,
+    width: TIMELINE_HOUR_LABEL_WIDTH_PX + TIMELINE_RAIL_SIDE_GUTTER_PX,
+    paddingRight: 0,
     alignItems: 'flex-end',
   },
   timeText: {
@@ -129,16 +210,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     top: 0,
-    bottom: -SPACING.md,
-    width: 2,
-    backgroundColor: COLORS.border,
+    bottom: -(TIMELINE_HORIZONTAL_RHYTHM_PX * 2),
+    width: TIMELINE_RAIL_VIEW_LINE_PX,
+    overflow: 'hidden',
   },
   taskCard: {
     backgroundColor: '#FAF9F9',
     borderRadius: 20,
-    padding: SPACING.md,
-    marginLeft: SPACING.md,
-    marginBottom: SPACING.sm,
+    padding: TIMELINE_HORIZONTAL_RHYTHM_PX,
+    marginLeft: TIMELINE_RAIL_SIDE_GUTTER_PX,
+    marginBottom: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
   taskCardSelected: {
     backgroundColor: COLORS.accentBrown,
@@ -152,6 +233,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  taskLeftTouchable: {
+    flex: 1,
+    minWidth: 0,
+  },
   taskLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -164,7 +249,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.sm,
+    marginRight: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
   taskIconContainerCompleted: {
     backgroundColor: COLORS.primaryStrong,
@@ -174,6 +259,7 @@ const styles = StyleSheet.create({
   },
   taskInfo: {
     flex: 1,
+    minWidth: 0,
   },
   taskTitle: {
     fontSize: FONTS.sizes.md,
@@ -181,6 +267,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Montserrat-Medium',
     marginBottom: SPACING.xs,
+    flexShrink: 1,
   },
   taskTitleCompleted: {
     textDecorationLine: 'line-through',
@@ -198,11 +285,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
   },
   checkbox: {
-    marginLeft: SPACING.sm,
+    marginLeft: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
   actionsBtn: {
-    marginLeft: SPACING.sm,
-    padding: 4,
+    marginLeft: TIMELINE_HORIZONTAL_RHYTHM_PX,
+    padding: TIMELINE_HORIZONTAL_RHYTHM_PX / 2,
     borderRadius: 999,
   },
 });

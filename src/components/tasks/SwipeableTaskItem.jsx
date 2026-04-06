@@ -96,6 +96,13 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
   };
 
   const isCompleted = task.status === 'completed';
+  const manualOverride = task?.autoDoneOverride;
+  const isVisuallyCompleted =
+    manualOverride === 'pending'
+      ? false
+      : manualOverride === 'completed'
+        ? true
+        : isCompleted;
   const firstTag = Array.isArray(task.tags) && task.tags.length > 0 ? task.tags[0] : null;
 
   return (
@@ -124,10 +131,10 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
       >
         <TouchableOpacity
           style={styles.checkbox}
-          onPress={() => onToggle(task.id)}
+          onPress={() => onToggle(task.id, !isVisuallyCompleted, task)}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          {isCompleted ? (
+          {isVisuallyCompleted ? (
             <View style={styles.checkboxFilled}>
               <Icon name="checkmark" size={16} color="#FFFFFF" />
             </View>
@@ -137,7 +144,7 @@ const SwipeableTaskItem = ({ task, onToggle, onDeleteRequest, onRescheduleReques
         </TouchableOpacity>
 
         <View style={styles.textBlock}>
-          <Text style={[styles.title, isCompleted && styles.titleDone]} numberOfLines={1}>
+          <Text style={[styles.title, isVisuallyCompleted && styles.titleDone]} numberOfLines={1}>
             {task.title}
           </Text>
           {task.startTime || task.endTime ? (

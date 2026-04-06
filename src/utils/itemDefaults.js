@@ -1,3 +1,5 @@
+import { DEFAULT_TASK_THEME_COLOR } from '../constants/taskThemeColors';
+
 // Default templates for creating new items.
 // Dynamic fields (id, createdAt, updatedAt) are generated at creation time.
 // Import the relevant factory and spread over it with user-provided values.
@@ -13,7 +15,7 @@ const baseDefaults = {
   startTime: '09:00',
   endTime: '10:00',
   status: 'pending',         // 'pending' | 'completed' | 'skipped'
-  themeColor: '#E8E0D5',
+  themeColor: DEFAULT_TASK_THEME_COLOR,
   priority: 'medium',        // 'low' | 'medium' | 'high'
   difficulty: 'medium',      // 'easy' | 'medium' | 'hard'
   estimatedDuration: null,   // minutes

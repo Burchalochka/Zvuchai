@@ -30,37 +30,40 @@ import { getTranslation } from '../../utils/translations';
 import { createTask as createTaskWithBackend } from '../../services/TaskCreationService';
 import { PreferencesStorage } from '../../services/StorageService';
 import { checkTimeOverlap } from '../../utils/timeUtils';
+import { taskDefaults, habitDefaults, goalDefaults } from '../../utils/itemDefaults';
+import { DEFAULT_TASK_THEME_COLOR, TASK_THEME_PALETTE } from '../../constants/taskThemeColors';
+import {
+  resolveCalendarListDateKey,
+  isItemOnCalendarDay,
+} from '../../utils/calendarDay';
 
 const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const { tasks, habits, goals, addTask, addHabit, addGoal } = useTasks();
   const { language } = useLanguage();
-  const { selectedDate } = useSelectedDate();
-  const [step, setStep] = useState('type'); // 'type' or 'form'
+  const { selectedDate, todayCalendar } = useSelectedDate();
+  const [step, setStep] = useState('type');
   const [itemType, setItemType] = useState(null);
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const tasksToday = tasks.filter(task => {
-    if (!task.createdAt) return true;
-    const taskDate = new Date(task.createdAt);
-    taskDate.setHours(0, 0, 0, 0);
-    return taskDate.getTime() === today.getTime();
-  }).length;
-  
-  const habitsToday = habits.filter(habit => {
-    if (!habit.createdAt) return true;
-    const habitDate = new Date(habit.createdAt);
-    habitDate.setHours(0, 0, 0, 0);
-    return habitDate.getTime() === today.getTime();
-  }).length;
-  
-  const goalsToday = goals.filter(goal => {
-    if (!goal.createdAt) return true;
-    const goalDate = new Date(goal.createdAt);
-    goalDate.setHours(0, 0, 0, 0);
-    return goalDate.getTime() === today.getTime();
-  }).length;
+
+  const selectedDateKey = resolveCalendarListDateKey(selectedDate, todayCalendar);
+
+  const tasksToday = (tasks || []).filter(
+    (t) =>
+      t &&
+      (t.type === 'task' || t.type == null) &&
+      isItemOnCalendarDay(t, selectedDateKey),
+  ).length;
+  const habitsToday = (habits || []).filter(
+    (h) =>
+      h &&
+      (h.type === 'habit' || h.type == null) &&
+      isItemOnCalendarDay(h, selectedDateKey),
+  ).length;
+  const goalsToday = (goals || []).filter(
+    (g) =>
+      g &&
+      (g.type === 'goal' || g.type == null) &&
+      isItemOnCalendarDay(g, selectedDateKey),
+  ).length;
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
@@ -73,7 +76,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [activeInput, setActiveInput] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiInputType, setEmojiInputType] = useState(null);
-  const [selectedColor, setSelectedColor] = useState('#E8E0D5');
+  const [selectedColor, setSelectedColor] = useState(DEFAULT_TASK_THEME_COLOR);
   const [titleAudio, setTitleAudio] = useState(null);
   const [descriptionAudio, setDescriptionAudio] = useState(null);
   const [isPlayingTitle, setIsPlayingTitle] = useState(false);
@@ -83,34 +86,13 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [currentPlayerType, setCurrentPlayerType] = useState(null);
   const playbackListenerRef = useRef(null);
   const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-  const [timePickerTarget, setTimePickerTarget] = useState(null); // 'start' | 'end'
+  const [timePickerTarget, setTimePickerTarget] = useState(null);
   const [timePickerHourIdx, setTimePickerHourIdx] = useState(9);
   const [timePickerMinuteIdx, setTimePickerMinuteIdx] = useState(0);
   const [conflictDialog, setConflictDialog] = useState(null);
   
-  const themeColors = [
-    '#E8E0D5',
-    '#FFE5B4',
-    '#E0D5FF',
-    '#FFB3BA',
-    '#BAFFC9',
-    '#BAE1FF',
-    '#FFFFBA',
-    '#D4A5F5',
-  ];
+  const themeColors = TASK_THEME_PALETTE;
   const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
-
-  const toDateKey = (d) => {
-    if (!d) return null;
-    const x = new Date(d);
-    if (isNaN(x.getTime())) return null;
-    const y = x.getFullYear();
-    const m = String(x.getMonth() + 1).padStart(2, '0');
-    const day = String(x.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const selectedDateKey = toDateKey(selectedDate) || toDateKey(new Date());
 
   const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
   const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -118,12 +100,30 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const parseHHMM = (value) => {
     const str = typeof value === 'string' ? value : '';
     const [hRaw, mRaw] = str.split(':');
-    const h = Number(hRaw);
-    const m = Number(mRaw);
+    const h = Number(String(hRaw).trim());
+    const m = Number(String(mRaw).trim());
     return {
       h: Number.isFinite(h) ? Math.min(23, Math.max(0, h)) : 0,
       m: Number.isFinite(m) ? Math.min(59, Math.max(0, m)) : 0,
     };
+  };
+
+  const toMinutesHHMM = (value) => {
+    const { h, m } = parseHHMM(value);
+    return h * 60 + m;
+  };
+
+  const formatHHMMClamped = (totalMinutes) => {
+    const clamped = Math.max(0, Math.min(23 * 60 + 59, Math.round(totalMinutes)));
+    const hh = Math.floor(clamped / 60);
+    const mm = clamped % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  };
+
+  /** Відображення часу у полі форми: «09 : 30» (пробіли навколо двокрапки). */
+  const spacedHHMM = (value) => {
+    const { h, m } = parseHHMM(value);
+    return `${String(h).padStart(2, '0')} : ${String(m).padStart(2, '0')}`;
   };
 
   const openTimePicker = (target) => {
@@ -137,7 +137,16 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
 
   const confirmTimePicker = () => {
     const value = `${HOURS[timePickerHourIdx]}:${MINUTES[timePickerMinuteIdx]}`;
-    if (timePickerTarget === 'start') setStartTime(value);
+    if (timePickerTarget === 'start') {
+      const prevStartMin = toMinutesHHMM(startTime);
+      const prevEndMin = toMinutesHHMM(endTime);
+      const prevDuration = prevEndMin > prevStartMin ? (prevEndMin - prevStartMin) : 60;
+      const duration = Math.max(5, prevDuration);
+      const nextStartMin = toMinutesHHMM(value);
+      const nextEndMin = nextStartMin + duration;
+      setStartTime(value);
+      setEndTime(formatHHMMClamped(nextEndMin));
+    }
     if (timePickerTarget === 'end') setEndTime(value);
     setIsTimePickerVisible(false);
     setTimePickerTarget(null);
@@ -251,7 +260,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         Voice.onSpeechError = handleSpeechError;
         Voice.onSpeechEnd = handleSpeechEnd;
       } catch (e) {
-        // Voice native module may be unavailable
       }
     }
     return () => {
@@ -259,7 +267,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         try {
           Voice.destroy().then(() => Voice.removeAllListeners?.()).catch(() => {});
         } catch (e) {
-          // ignore
         }
       }
       audioRecorderPlayer.stopRecorder().catch(() => {});
@@ -495,25 +502,32 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     return diff > 0 ? diff : null;
   };
 
-  const buildTaskPayload = ({ start, end }) => {
+  /** Спільні поля форми (задача / звичка / ціль). */
+  const buildScheduledFields = ({ start, end }) => {
     const duration = computeDurationMinutes(start, end);
     return {
-      type: 'task',
       title: title.trim(),
       description: description.trim(),
       date: noDeadline ? null : selectedDateKey,
       startTime: noDeadline ? null : start,
       endTime: noDeadline ? null : end,
       estimatedDuration: duration ?? 0,
-      status: 'pending',
-      archived: false,
-      deletedAt: null,
-      tags: [],
       themeColor: selectedColor,
-      titleAudio: titleAudio,
-      descriptionAudio: descriptionAudio,
+      titleAudio,
+      descriptionAudio,
     };
   };
+
+  /** Повний об’єкт для TaskCreationService.createTask (усі поля моделі). */
+  const buildTaskPayload = ({ start, end }) => ({
+    ...taskDefaults,
+    ...buildScheduledFields({ start, end }),
+    type: 'task',
+    status: 'pending',
+    tags: [],
+    archived: false,
+    deletedAt: null,
+  });
 
   const formatHHMM = (totalMinutes) => {
     const h = Math.floor(totalMinutes / 60);
@@ -546,17 +560,15 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     const startMin = toMinutes(startHHMM);
     if (startMin === null) return null;
 
-    const step = 5; // minutes
+    const step = 5;
     for (let m = startMin; m <= 1440 - durationMinutes; m += step) {
       const candidateStartISO = `${dateKey}T${formatHHMM(m)}:00`;
 
-      // Dead zones
       const overlapsDeadZone = deadZones.some((dz) =>
         checkTimeOverlap(candidateStartISO, durationMinutes, dz),
       );
       if (overlapsDeadZone) continue;
 
-      // Existing tasks as zones
       const overlapsTask = asZones.some((z) =>
         checkTimeOverlap(candidateStartISO, durationMinutes, z),
       );
@@ -587,7 +599,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setNoDeadline(false);
     setIsRecording(false);
     setActiveInput(null);
-    setSelectedColor('#E8E0D5');
+    setSelectedColor(DEFAULT_TASK_THEME_COLOR);
     setTitleAudio(null);
     setDescriptionAudio(null);
     setIsPlayingTitle(false);
@@ -604,11 +616,15 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       return;
     }
 
+    if (!itemType) {
+      Alert.alert('Тип', 'Оберіть задачу, звичку або ціль.');
+      return;
+    }
+
     const formattedStartTime = formatTimeInput(startTime);
     const formattedEndTime = formatTimeInput(endTime);
 
     if (!noDeadline) {
-      // Validate format and logical order (end must be after start)
       const startValid = validateTime(formattedStartTime);
       const endValid = validateTime(formattedEndTime);
       const duration =
@@ -629,55 +645,80 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       }
     }
 
-    const item = buildTaskPayload({ start: formattedStartTime, end: formattedEndTime });
-
-      if (itemType === 'task') {
-        try {
-          const result = await createTaskWithBackend(item);
-          // Persisted to storage by service; also sync to in-memory context.
-          pushTaskToState(result);
-        } catch (err) {
-          if (err?.code === 'DEAD_ZONE_CONFLICT') {
-            setConflictDialog({
-              kind: 'dead_zone',
-              title: getTranslation('deadZoneTitle', language) || 'Мертва зона',
-              message: `${err.message || 'Це час вашої мертвої зони'}${err.zoneName ? ` (${err.zoneName})` : ''}.`,
-              item,
-            });
-            return;
-          }
-          if (err?.code === 'TASK_OVERLAP') {
-            // Ask the user: add in parallel on same time, place nearby, or reschedule.
-            setConflictDialog({
-              kind: 'task_overlap',
-              title: 'Час уже зайнятий',
-              message: `${err.conflictingTaskTitle ? `У вас уже є задача “${err.conflictingTaskTitle}” у цей час.` : (err.message || 'Цей час вже зайнятий іншою задачею')}`,
-              item,
-              conflictingTaskTitle: err.conflictingTaskTitle ?? null,
-            });
-            return;
-          }
-          throw err;
+    if (itemType === 'task') {
+      const item = buildTaskPayload({ start: formattedStartTime, end: formattedEndTime });
+      try {
+        const result = await createTaskWithBackend(item);
+        pushTaskToState(result);
+      } catch (err) {
+        if (err?.code === 'DEAD_ZONE_CONFLICT') {
+          setConflictDialog({
+            kind: 'dead_zone',
+            title: getTranslation('deadZoneTitle', language) || 'Мертва зона',
+            message: `${err.message || 'Це час вашої мертвої зони'}${err.zoneName ? ` (${err.zoneName})` : ''}.`,
+            item,
+          });
+          return;
         }
-      } else if (itemType === 'habit') {
-        const habit = {
-          ...item,
-          // habits use the same shape in this app (date + times + status)
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
-          type: 'habit',
-        };
-        pushHabitToState(habit);
-      } else if (itemType === 'goal') {
-        addGoal({
-          ...item,
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
-          targetValue: targetValue.trim(),
-          currentProgress: currentProgress.trim() || '0',
-          deadline: noDeadline ? '' : deadline.trim(),
-        });
+        if (err?.code === 'TASK_OVERLAP') {
+          setConflictDialog({
+            kind: 'task_overlap',
+            title: 'Час уже зайнятий',
+            message: `${err.conflictingTaskTitle ? `У вас уже є задача “${err.conflictingTaskTitle}” у цей час.` : (err.message || 'Цей час вже зайнятий іншою задачею')}`,
+            item,
+            conflictingTaskTitle: err.conflictingTaskTitle ?? null,
+          });
+          return;
+        }
+        console.warn('createTask failed', err);
+        Alert.alert(
+          getTranslation('title', language) || 'Помилка',
+          err?.message || String(err),
+        );
+        return;
       }
+    } else if (itemType === 'habit') {
+      const scheduled = buildScheduledFields({
+        start: formattedStartTime,
+        end: formattedEndTime,
+      });
+      const nowIso = new Date().toISOString();
+      const habit = {
+        ...habitDefaults,
+        ...scheduled,
+        type: 'habit',
+        id: Date.now().toString(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      pushHabitToState(habit);
+    } else if (itemType === 'goal') {
+      const scheduled = buildScheduledFields({
+        start: formattedStartTime,
+        end: formattedEndTime,
+      });
+      const nowIso = new Date().toISOString();
+      const deadlineStr = noDeadline ? null : deadline.trim() || null;
+      const rawTarget = targetValue.trim();
+      const parsedValue = parseFloat(String(rawTarget).replace(',', '.'));
+      const parsedProgress = parseFloat(String(currentProgress).replace(',', '.'));
+      addGoal({
+        ...goalDefaults,
+        ...scheduled,
+        type: 'goal',
+        id: Date.now().toString(),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        deadline: deadlineStr,
+        target: {
+          ...goalDefaults.target,
+          value: Number.isFinite(parsedValue) ? parsedValue : 0,
+          unit: rawTarget.replace(/^[\d.,\s]+/, '').trim() || '',
+          progress: Number.isFinite(parsedProgress) ? parsedProgress : 0,
+          targetDate: deadlineStr,
+        },
+      });
+    }
 
     await doCleanupAndClose();
   };
@@ -701,7 +742,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setNoDeadline(false);
     setIsRecording(false);
     setActiveInput(null);
-    setSelectedColor('#E8E0D5');
+    setSelectedColor(DEFAULT_TASK_THEME_COLOR);
     setTitleAudio(null);
     setDescriptionAudio(null);
     setIsPlayingTitle(false);
@@ -839,18 +880,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   );
 
 
-  console.log('=== AddItemModal render ===');
-  console.log('visible prop:', visible);
-  console.log('step:', step);
-  console.log('itemType:', itemType);
-
-  if (visible) {
-    console.log('🟢🟢🟢 MODAL SHOULD BE VISIBLE NOW 🟢🟢🟢');
-    console.log('🟢 Modal visible is TRUE, rendering Modal component');
-  } else {
-    console.log('🔴 Modal visible is FALSE, not rendering');
-  }
-
   return (
     <Modal
       visible={visible}
@@ -916,7 +945,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
           </View>
 
           {step === 'type' ? (
-            <View style={styles.typeSelection}>
+            <View key={selectedDateKey ?? 'day'} style={styles.typeSelection}>
               <View style={styles.cardsRow}>
                 <Animated.View
                   style={[
@@ -1168,7 +1197,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                       activeOpacity={0.8}
                       onPress={() => openTimePicker('start')}
                     >
-                      <Text style={styles.timeValueText}>{startTime}</Text>
+                      <Text style={styles.timeValueText}>{spacedHHMM(startTime)}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -1179,7 +1208,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                       activeOpacity={0.8}
                       onPress={() => openTimePicker('end')}
                     >
-                      <Text style={styles.timeValueText}>{endTime}</Text>
+                      <Text style={styles.timeValueText}>{spacedHHMM(endTime)}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1422,7 +1451,6 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
         </View>
       </Modal>
 
-      {/* Conflict dialog (custom design) */}
       <Modal
         visible={!!conflictDialog}
         transparent
@@ -1518,12 +1546,10 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    // Ensure backdrop doesn't steal touches from sheet on Android.
     zIndex: 0,
     elevation: 0,
   },
   modalContent: {
-    // Match Home screen palette (warm base, light panel)
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -1752,7 +1778,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
-    // On Android, fall back to system font to ensure Cyrillic glyphs render.
     fontFamily: Platform.OS === 'android' ? undefined : 'Montserrat-Regular',
     minHeight: 48,
     borderWidth: 1,
@@ -1904,7 +1929,6 @@ const styles = StyleSheet.create({
   },
   conflictMessage: {
     fontSize: FONTS.sizes.md,
-    // Use Montserrat Medium to avoid missing Cyrillic glyphs on Android builds.
     fontFamily: FONTS.medium,
     color: COLORS.text,
     textAlign: 'center',

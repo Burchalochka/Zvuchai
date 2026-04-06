@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Svg, { Circle } from 'react-native-svg';
 import { SPACING, COLORS } from '../../styles/theme';
 
@@ -69,42 +70,71 @@ const ProgressRing = ({ size = 50, strokeWidth = 4, progress = 0.75 }) => {
   );
 };
 
-const Header = ({ onMenuPress, onVector12Press, onCalendarPress }) => (
-  <View style={styles.container}>
-    <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
-      <NewIcon />
-    </TouchableOpacity>
+const Header = ({ onMenuPress, onVector12Press, onCalendarPress }) => {
+  const navigation = useNavigation();
 
-    <View style={styles.centerSection}>
-      <View style={styles.avatarContainer}>
-        <ProgressRing size={50} strokeWidth={4} progress={0.75} />
-        <Image
-          source={require('../../assets/icons/1211f1716d7bd92d1d47476f7d426ffaab9085b7.png')}
-          style={styles.avatar}
-          resizeMode="contain"
-        />
+  const safeNavigate = (routeName, params) => {
+    try {
+      navigation?.navigate?.(routeName, params);
+    } catch {
+      // no-op
+    }
+  };
+
+  const handleMenu = () => {
+    if (onMenuPress) return onMenuPress();
+    // Default: open Inbox and request side menu to open.
+    safeNavigate('Inbox', { openSideMenu: true, _ts: Date.now() });
+  };
+
+  const handleCalendar = () => {
+    if (onCalendarPress) return onCalendarPress();
+    if (onVector12Press) return onVector12Press();
+    // Default: go to Home (calendar lives there)
+    safeNavigate('Home');
+  };
+
+  const handleCoins = () => safeNavigate('Goals');
+  const handleNotifications = () => safeNavigate('Inbox');
+
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.menuButton} onPress={handleMenu} activeOpacity={0.8}>
+        <NewIcon />
+      </TouchableOpacity>
+
+      <View style={styles.centerSection}>
+        <View style={styles.avatarContainer}>
+          <ProgressRing size={50} strokeWidth={4} progress={0.75} />
+          <Image
+            source={require('../../assets/icons/1211f1716d7bd92d1d47476f7d426ffaab9085b7.png')}
+            style={styles.avatar}
+            resizeMode="contain"
+          />
+        </View>
+      </View>
+
+      <View style={styles.rightSection}>
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={handleCalendar}
+          accessibilityRole="button"
+          activeOpacity={0.8}
+        >
+          <Vector12Icon />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.iconButton} onPress={handleCoins} activeOpacity={0.8}>
+          <CoinsIcon />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.iconButton} onPress={handleNotifications} activeOpacity={0.8}>
+          <NotificationIcon />
+        </TouchableOpacity>
       </View>
     </View>
-
-    <View style={styles.rightSection}>
-      <TouchableOpacity
-        style={styles.iconButton}
-        onPress={onCalendarPress || onVector12Press}
-        accessibilityRole="button"
-      >
-        <Vector12Icon />
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.iconButton}>
-        <CoinsIcon />
-      </TouchableOpacity>
-      
-      <TouchableOpacity style={styles.iconButton}>
-        <NotificationIcon />
-      </TouchableOpacity>
-    </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

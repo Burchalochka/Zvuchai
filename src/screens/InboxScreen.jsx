@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Header from '../components/common/Header';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { useTasks } from '../context/TasksContext';
@@ -74,14 +75,29 @@ const SUB_TABS = {
   FAVORITES: 'favorites',
 };
 
+const DONE_ICON = require('../assets/icons/Group34.png');
+const EMPTY_ICON = require('../assets/icons/Ellipse 32.png');
+
 const InboxScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
   const insets = useSafeAreaInsets();
-  const { tasks } = useTasks();
+  const { tasks, setTaskCompleted } = useTasks();
 
   const [activeMainTab, setActiveMainTab] = useState(MAIN_TABS.NO_DEADLINE);
   const [activeSubTab, setActiveSubTab] = useState(SUB_TABS.ALL);
   const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
   const [isSideMenuVisible, setIsSideMenuVisible] = useState(false);
+
+  useEffect(() => {
+    const wantOpen = !!route?.params?.openSideMenu;
+    if (!wantOpen) return;
+    setIsSideMenuVisible(true);
+    try {
+      navigation?.setParams?.({ openSideMenu: false });
+    } catch {
+    }
+  }, [navigation, route?.params?.openSideMenu, route?.params?._ts]);
 
   const handleMainTabChange = (tabKey) => {
     setActiveMainTab(tabKey);
@@ -109,7 +125,7 @@ const InboxScreen = () => {
         title: String(t.title || ''),
         startTime: undefined,
         durationMinutes: undefined,
-        status: 'pending',
+        status: t.status || 'pending',
         confidenceScore: undefined,
         deadlineType: 'none',
         dateInfo: 'Без дедлайну',
@@ -280,6 +296,7 @@ const InboxScreen = () => {
               task={item}
               showConfidence={activeMainTab === MAIN_TABS.AI_UNSURE}
               mainTab={activeMainTab}
+              onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
             />
           )}
           contentContainerStyle={[
@@ -323,17 +340,21 @@ const InboxScreen = () => {
   );
 };
 
-// ─── Task Card ────────────────────────────────────────────────────────────────
-
-const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
+const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
   const isNoDeadline = mainTab === MAIN_TABS.NO_DEADLINE;
   const hasConfidence = showConfidence && typeof task.confidenceScore === 'number';
+  const manualOverride = task?.autoDoneOverride;
+  const isCompletedRaw = task?.status === 'completed';
+  const isVisuallyCompleted =
+    manualOverride === 'pending'
+      ? false
+      : manualOverride === 'completed'
+        ? true
+        : isCompletedRaw;
 
   if (isNoDeadline) {
-    // "Без дедлайну" layout: content left, action buttons top-right stacked
     return (
       <View style={styles.cardContainer}>
-        {/* Content */}
         <View style={styles.cardContentNoDeadline}>
           <Text style={styles.cardTitle}>{task.title}</Text>
           <View style={styles.cardDateRow}>
@@ -347,10 +368,17 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
           </View>
         </View>
 
-        {/* Top-right action buttons */}
         <View style={styles.noDeadlineActions}>
-          <TouchableOpacity style={styles.circleActionBtn}>
-            <Icon name="close-outline" size={18} color="#514134" />
+          <TouchableOpacity
+            style={styles.circleActionBtn}
+            onPress={() => onToggleComplete?.(task.id, !isVisuallyCompleted)}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={isVisuallyCompleted ? DONE_ICON : EMPTY_ICON}
+              style={styles.noDeadlineStatusIcon}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.circleActionBtn, { marginTop: 6 }]}>
             <Icon name="pencil-outline" size={16} color="#514134" />
@@ -360,10 +388,8 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
     );
   }
 
-  // "ШІ не впевнений" layout: compact, actions inline with date row
   return (
     <View style={styles.cardContainerAi}>
-      {/* Header row: title + confidence badge */}
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardTitleAi}>{task.title}</Text>
         {hasConfidence && (
@@ -373,7 +399,6 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
         )}
       </View>
 
-      {/* Bottom row: date info + action buttons on the right */}
       <View style={styles.cardBottomRow}>
         <View style={styles.cardDateRow}>
           <Icon name="calendar-outline" size={15} color="#514134" style={styles.cardDateIcon} />
@@ -388,7 +413,6 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
           </View>
         </View>
 
-        {/* Action buttons: check, X, pencil — neutral colors */}
         <View style={styles.aiActionsRow}>
           <TouchableOpacity style={styles.circleActionBtn}>
             <Icon name="checkmark-outline" size={17} color="#514134" />
@@ -404,8 +428,6 @@ const InboxTaskCard = ({ task, showConfidence, mainTab }) => {
     </View>
   );
 };
-
-// ─── Calendar Modal ───────────────────────────────────────────────────────────
 
 const CalendarRangeModal = ({ visible, onClose }) => {
   const [startDate, setStartDate] = useState(null);
@@ -435,8 +457,6 @@ const CalendarRangeModal = ({ visible, onClose }) => {
     </Modal>
   );
 };
-
-// ─── Date Range Calendar ──────────────────────────────────────────────────────
 
 const MONTH_NAMES_UA = [
   'Січень','Лютий','Березень','Квітень','Травень','Червень',
@@ -563,8 +583,6 @@ const DateRangeCalendar = ({ startDate, endDate, onChange }) => {
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -575,7 +593,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAF9F9',
   },
 
-  // ── Main segmented control (flush to header, full width, rounded top) ──
   mainSegmentedWrapper: {
     position: 'relative',
     height: 52,
@@ -626,7 +643,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-SemiBold',
   },
 
-  // ── Sub tabs ──
   subTabsContainer: {
     alignItems: 'center',
     paddingTop: 12,
@@ -698,7 +714,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-SemiBold',
   },
 
-  // ── List ──
   listContent: {
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
@@ -708,7 +723,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Card: Без дедлайну ──
   cardContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -736,7 +750,6 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 
-  // ── Card: ШІ не впевнений ──
   cardContainerAi: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -775,7 +788,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // ── Shared card elements ──
   cardTitle: {
     fontSize: FONTS.sizes.md,
     color: '#514134',
@@ -803,7 +815,6 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // ── Confidence badge ──
   confidenceBadge: {
     minWidth: 44,
     paddingHorizontal: SPACING.xs,
@@ -821,7 +832,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-Medium',
   },
 
-  // ── Circle action button (neutral, for both tabs) ──
   circleActionBtn: {
     width: 34,
     height: 34,
@@ -832,8 +842,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  noDeadlineStatusIcon: {
+    width: 18,
+    height: 18,
+  },
 
-  // ── Empty state ──
   emptyStateContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -851,7 +864,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-Medium',
   },
 
-  // ── Side menu ──
   sideMenuOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -877,7 +889,6 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.xs,
   },
 
-  // ── Modal ──
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -925,7 +936,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-SemiBold',
   },
 
-  // ── Range Calendar ──
   rangeCalendarContainer: {
     marginTop: SPACING.lg,
   },
