@@ -51,7 +51,7 @@ const TIMELINE_SCROLL_BOTTOM_EXTRA = 0;
 const DAY_TABS_SEGMENT_H = 48;
 const DAY_TABS_RAIL_BRIDGE_H = DAY_TABS_SEGMENT_H + SPACING.md;
 
-const HomeScreen = () => {
+const HomeScreen = ({ route }) => {
   const navigation = useNavigation();
   const {
     tasks,
@@ -70,7 +70,7 @@ const HomeScreen = () => {
     reorderHabitsForDate,
   } = useTasks();
   const { language } = useLanguage();
-  const { selectedDate, todayCalendar } = useSelectedDate();
+  const { selectedDate, setSelectedDate, todayCalendar } = useSelectedDate();
   useModal();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('tasks');
@@ -100,6 +100,15 @@ const HomeScreen = () => {
   useEffect(() => {
     if (calendarStripMode === 'year') setCalendarStripMode('month');
   }, [calendarStripMode]);
+
+  useEffect(() => {
+    if (!route?.params?.openCalendarMenu) return;
+    setCalendarMenuVisible(true);
+    try {
+      navigation?.setParams?.({ openCalendarMenu: undefined });
+    } catch {
+    }
+  }, [route?.params?.openCalendarMenu, navigation]);
 
   const selectedKey = resolveCalendarListDateKey(selectedDate, todayCalendar);
   const tasksForDay = (tasks || []).filter((t) => isItemOnCalendarDay(t, selectedKey));
@@ -390,9 +399,9 @@ const HomeScreen = () => {
                   >
                     <View style={styles.dayEmptyMessageInner}>
                       <Text style={styles.dayEmptyHintTitle}>
-                        {emptyTasksHint.title}
+                        {emptyTasksHint?.title ?? ''}
                       </Text>
-                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint.sub}</Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint?.sub ?? ''}</Text>
                     </View>
                   </View>
                 )
@@ -418,9 +427,9 @@ const HomeScreen = () => {
                 >
                   <View style={styles.dayEmptyMessageInner}>
                     <Text style={styles.dayEmptyHintTitle}>
-                      {emptyHabitsHint.title}
+                      {emptyHabitsHint?.title ?? ''}
                     </Text>
-                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint.sub}</Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint?.sub ?? ''}</Text>
                   </View>
                 </View>
               )}
@@ -447,9 +456,9 @@ const HomeScreen = () => {
                   <View style={styles.tasksPlaceholder}>
                     <View style={styles.monthEmptyMessageInner}>
                       <Text style={styles.dayEmptyHintTitle}>
-                        {emptyTasksHint.title}
+                        {emptyTasksHint?.title ?? ''}
                       </Text>
-                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint.sub}</Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint?.sub ?? ''}</Text>
                     </View>
                   </View>
                 }
@@ -480,9 +489,9 @@ const HomeScreen = () => {
                   <View style={styles.tasksPlaceholder}>
                     <View style={styles.monthEmptyMessageInner}>
                       <Text style={styles.dayEmptyHintTitle}>
-                        {emptyTasksHint.title}
+                        {emptyTasksHint?.title ?? ''}
                       </Text>
-                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint.sub}</Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint?.sub ?? ''}</Text>
                     </View>
                   </View>
                 }
@@ -509,9 +518,9 @@ const HomeScreen = () => {
                 <View style={styles.tasksPlaceholder}>
                   <View style={styles.monthEmptyMessageInner}>
                     <Text style={styles.dayEmptyHintTitle}>
-                      {emptyHabitsHint.title}
+                      {emptyHabitsHint?.title ?? ''}
                     </Text>
-                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint.sub}</Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint?.sub ?? ''}</Text>
                   </View>
                 </View>
               }
@@ -681,7 +690,6 @@ const HomeScreen = () => {
                 calendarViewMode === 'week' ? styles.calendarMenuItemActive : null,
               ]}
               onPress={() => {
-                setCalendarViewMode('day');
                 setCalendarMenuVisible(false);
                 navigation.navigate('WeekSchedule');
               }}
@@ -706,74 +714,6 @@ const HomeScreen = () => {
                 }
               >
                 Тиждень
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.calendarMenuItem,
-                calendarViewMode === 'month' ? styles.calendarMenuItemActive : null,
-              ]}
-              onPress={() => {
-                setCalendarViewMode('month');
-                setCalendarStripMode('month');
-                setCalendarMenuVisible(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.calendarMenuIconSlot}>
-                <Image
-                  source={require('../assets/icons/calendar 3.png')}
-                  style={
-                    calendarViewMode === 'month'
-                      ? styles.calendarMenuIconActive
-                      : styles.calendarMenuIconInactive
-                  }
-                  resizeMode="contain"
-                />
-              </View>
-              <Text
-                style={
-                  calendarViewMode === 'month'
-                    ? styles.calendarMenuTextActive
-                    : styles.calendarMenuTextInactive
-                }
-              >
-                Місяць
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.calendarMenuItem,
-                calendarViewMode === 'threeDays' ? styles.calendarMenuItemActive : null,
-              ]}
-              onPress={() => {
-                setCalendarViewMode('threeDays');
-                setCalendarStripMode('week');
-                setCalendarMenuVisible(false);
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.calendarMenuIconSlot}>
-                <Image
-                  source={require('../assets/icons/Vector45.png')}
-                  style={
-                    calendarViewMode === 'threeDays'
-                      ? styles.calendarMenuIconActive
-                      : styles.calendarMenuIconInactive
-                  }
-                  resizeMode="contain"
-                />
-              </View>
-              <Text
-                style={
-                  calendarViewMode === 'threeDays'
-                    ? styles.calendarMenuTextActive
-                    : styles.calendarMenuTextInactive
-                }
-              >
-                3 дні
               </Text>
             </TouchableOpacity>
           </View>

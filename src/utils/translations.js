@@ -4,6 +4,7 @@ export const translations = {
     home: 'Головна',
     goals: 'Цілі',
     analytics: 'Аналітика',
+    weekSchedule: 'Тиждень',
     
     completed: 'завершено',
     progress: 'прогрес',
@@ -140,6 +141,7 @@ export const translations = {
     home: 'Home',
     goals: 'Goals',
     analytics: 'Analytics',
+    weekSchedule: 'Week',
     
     completed: 'completed',
     progress: 'progress',
