@@ -20,8 +20,6 @@ import {
   TIMELINE_RAIL_STROKE_WIDTH_PX,
   TIMELINE_RAIL_VIEW_LINE_PX,
   TIMELINE_HOUR_LABEL_WIDTH_PX,
-  TIMELINE_RAIL_SIDE_GUTTER_PX,
-  TIMELINE_RAIL_LINE_LEFT_PX,
   TIMELINE_RAIL_CENTER_X_PX,
   TIMELINE_SCALE_COLUMN_WIDTH_PX,
   TIMELINE_RAIL_STROKE,
@@ -50,20 +48,21 @@ import {
 } from '../../constants/taskThemeColors';
 
 const MINUTES_IN_DAY = 24 * 60;
-/** Макет Figma (Android Compact): пігулка #452C16 @ 40%, текст білий. */
+
 const NOW_PILL_BG = 'rgba(69, 44, 22, 0.4)';
 const NOW_PILL_TEXT = '#FFFFFF';
 const KYIV_TZ = 'Europe/Kyiv';
-const TIMEZONE_MODE = 'kyiv';
-/** Від цієї висоти картки — макет «високої» картки (смуга з відступами, іконка нотатки знизу). */
+
+const TIMEZONE_MODE = 'device';
+
 const TALL_TASK_CARD_MIN_PX = 90;
-/** Нижче цієї ширини колонки текст майже не читається — показуємо карусель з фіксованою шириною картки. */
+
 const MIN_READABLE_OVERLAP_COLUMN_PX = 118;
-/** Ширина картки в каруселі, коли колонки на весь екран занадто вузькі. */
-/** Ширина картки в каруселі (враховує внутрішній padding зліва, як у основному ряді). */
+
+
 const OVERLAP_CAROUSEL_CARD_W = 196;
 const OVERLAP_CAROUSEL_SLOT_GAP = TIMELINE_HORIZONTAL_RHYTHM_PX;
-/** Скільки тримати палець, щоб увімкнути перетягування в часі (тоді вертикальний рух змінює слот). */
+
 const DRAG_HOLD_MS = 420;
 
 const NOTE_ICON = require('../../assets/icons/Group.png');
@@ -74,7 +73,7 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-/** Прибираємо ведучий маркер списку в одному рядку («- …», «• …»). */
+
 function stripLeadingListMarker(s) {
   return String(s ?? '')
     .trim()
@@ -82,14 +81,12 @@ function stripLeadingListMarker(s) {
     .trim();
 }
 
-/** Висота рядка основного тексту картки (узгоджено з styles.titleText / compactLineOuter). */
+
 const TASK_CARD_LINE_HEIGHT = 18;
-/** Макс. рядків опису на картці (одна константа на модуль — без повторних `const` у `computeTaskCardTextLayout`). */
+
 const MAX_TASK_CARD_DESCRIPTION_LINES = 32;
 
-/**
- * Заголовок на картці: назва задачі; якщо назви немає — показуємо опис як єдиний рядок (без дублювання в блоці опису).
- */
+
 function getTaskCardTitle(task) {
   if (!task) return '';
   const titleRaw = String(task.title ?? '').trim();
@@ -107,9 +104,7 @@ function taskHasExplicitTitle(task) {
   return String(task?.title ?? '').trim().length > 0;
 }
 
-/**
- * Другий блок під заголовком: лише якщо є окрема назва; інакше текст уже в заголовку.
- */
+
 function getTaskCardDescriptionBody(task) {
   if (!task || !taskHasExplicitTitle(task)) return '';
   const descRaw = String(task.description ?? '').trim();
@@ -118,10 +113,7 @@ function getTaskCardDescriptionBody(task) {
   return cleaned.length > 0 ? cleaned : descRaw;
 }
 
-/**
- * Підзаголовок-опис: лише коли слот > 60 хв і є `description` при непорожньому `title`.
- * Пріоритет заголовка: більше рядків йому, решта — опис; якщо текст не вміщується — «…» (numberOfLines + ellipsizeMode tail).
- */
+
 function computeTaskCardTextLayout({
   cardHeightPx,
   compact,
@@ -137,7 +129,7 @@ function computeTaskCardTextLayout({
 
   const titleLH = TASK_CARD_LINE_HEIGHT;
 
-  /** Коротка картка (compact): час у рядку не показуємо — тільки заголовок і за потреби опис під ним. */
+  
   if (compact) {
     if (!showDescriptionFooter) return { titleLines: 1, descriptionLines: 0 };
     const padTop = 6;
@@ -195,21 +187,18 @@ function computeTaskCardTextLayout({
   }
 
   const totalSlots = Math.floor(availableBase / titleLH);
-  /** Менше 2 рядків по висоті — лише заголовок (з «…» при потребі). */
+  
   if (totalSlots < 2) {
     const lines = Math.floor(availableBase / titleLH);
     return { titleLines: clamp(Number.isFinite(lines) && lines >= 1 ? lines : 1, 1, 12), descriptionLines: 0 };
   }
 
-  /** Два рядки висоти під текст: заголовок + опис (кожен numberOfLines + ellipsize tail). */
+  
   if (totalSlots === 2) {
     return { titleLines: 1, descriptionLines: 1 };
   }
 
-  /**
-   * 3+ рядки: ~40% під заголовок (щоб назва частіше вміщалась повністю), решта — опис;
-   * якщо не вміщується — обрізка з «…» на обох Text.
-   */
+  
   let titleLines = Math.max(1, Math.min(12, Math.round(totalSlots * 0.4)));
   let descriptionLines = totalSlots - titleLines;
   if (descriptionLines < 1) {
@@ -223,7 +212,7 @@ function computeTaskCardTextLayout({
   };
 }
 
-/** Висота кольорової смуги зліва в картці — зростає з висотою слота (довгі інтервали виглядають пропорційно, без «короткої» смужки). */
+
 function computeStripPillHeight(cardHeightPx, compact, tallLayout = false) {
   if (!Number.isFinite(cardHeightPx) || cardHeightPx < 16) return 12;
   if (tallLayout && !compact && cardHeightPx >= TALL_TASK_CARD_MIN_PX) {
@@ -263,7 +252,7 @@ function formatDurationUk(totalMinutes) {
   return `${h} год ${m} хв`;
 }
 
-/** Для збереження в задачах (парсер приймає обидва варіанти). */
+
 function formatHHMM(totalMinutes) {
   const m = ((totalMinutes % MINUTES_IN_DAY) + MINUTES_IN_DAY) % MINUTES_IN_DAY;
   const h = Math.floor(m / 60);
@@ -271,7 +260,7 @@ function formatHHMM(totalMinutes) {
   return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-/** Відображення на шкалі та в пігулці «зараз»: як у макеті — 8:00, 13:05 (година без ведучого нуля). */
+
 function formatTimelineLabel(totalMinutes) {
   const m = ((totalMinutes % MINUTES_IN_DAY) + MINUTES_IN_DAY) % MINUTES_IN_DAY;
   const h = Math.floor(m / 60);
@@ -293,7 +282,11 @@ function getNowParts() {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
-      return { dateKey: `${y}-${m}-${day}`, hours: d.getHours(), minutes: d.getMinutes() };
+      return {
+        dateKey: `${y}-${m}-${day}`,
+        hours: d.getHours(),
+        minutes: d.getMinutes(),
+      };
     }
 
     if (typeof Intl === 'undefined' || !Intl.DateTimeFormat) throw new Error('Intl not available');
@@ -328,7 +321,11 @@ function getNowParts() {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
-    return { dateKey: `${y}-${m}-${day}`, hours: d.getHours(), minutes: d.getMinutes() };
+    return {
+      dateKey: `${y}-${m}-${day}`,
+      hours: d.getHours(),
+      minutes: d.getMinutes(),
+    };
   }
 }
 
@@ -336,9 +333,7 @@ function durationMinForLane(it) {
   return Math.max(0, it.endMin - it.startMin);
 }
 
-/**
- * Порядок у списку рендеру: за часом; при однаковому старті — довша подія раніше (велика зустріч перед короткою).
- */
+
 function sortItemsForLanePlacement(a, b) {
   if (a.startMin !== b.startMin) return a.startMin - b.startMin;
   const da = durationMinForLane(a);
@@ -351,10 +346,7 @@ function sortItemsForLanePlacement(a, b) {
   return String(a.raw?.id ?? '').localeCompare(String(b.raw?.id ?? ''));
 }
 
-/**
- * Порядок для глобального greedy «найлівіша вільна смуга»: раніший старт, потім раніший кінець
- * (класичне розміщення інтервалів). Неперетинні задачі не їдуть управо через транзитивний кластер.
- */
+
 function sortForGreedyLaneAssignment(a, b) {
   if (a.startMin !== b.startMin) return a.startMin - b.startMin;
   if (a.endMin !== b.endMin) return a.endMin - b.endMin;
@@ -364,13 +356,7 @@ function sortForGreedyLaneAssignment(a, b) {
   return String(a.raw?.id ?? '').localeCompare(String(b.raw?.id ?? ''));
 }
 
-/**
- * Смуги: спочатку глобально — для кожної задачі найменший L, де вона не перетинається в часі
- * з уже покладеною в смугу L (start >= попередній end у цій смузі). Так задача без перетину
- * з лівими сусідами завжди стає «попереду» (lane 0), а не фіксується праворуч через інший
- * ланцюжок у кластері каруселі. Потім у межах одного кластера каруселі номери смуг стискають
- * у 0…k−1, щоб ширина колонок не лишала дірок.
- */
+
 function computeLanes(items) {
   if (items.length === 0) {
     return { items: [], laneCount: 1 };
@@ -428,7 +414,7 @@ function computeLanes(items) {
   return { items: withLane, laneCount: Math.max(1, globalMaxLane + 1) };
 }
 
-/** Задачи, интервалы которых пересекаются, — один «кластер» (карусель). */
+
 function buildOverlapClusters(items) {
   const n = items.length;
   if (n === 0) return [];
@@ -471,7 +457,7 @@ function snapTo5(min) {
   return Math.round(min / 5) * 5;
 }
 
-/** Вертикальне перетягування картки — лише після shouldClaimDrag() (утримання пальця). */
+
 function createTimeMovePanResponder({
   taskId,
   startMin0,
@@ -537,6 +523,8 @@ function createTimeMovePanResponder({
   });
 }
 
+const LIVE_HOUR_PILL_MIN_GAP = 10;
+
 export default function DayTimeline({
   dateKey,
   items,
@@ -557,20 +545,21 @@ export default function DayTimeline({
   const nowMin = (nowParts?.hours || 0) * 60 + (nowParts?.minutes || 0);
   nowMinRef.current = nowMin;
 
+  const todayKey = nowParts?.dateKey;
+  const effectiveDateKey = dateKey || todayKey;
+  const isTodayLiteral = !!effectiveDateKey && effectiveDateKey === todayKey;
+
   useEffect(() => {
     if (tickerRef.current) clearInterval(tickerRef.current);
-    const intervalMs = __DEV__ ? 1000 : 30_000;
+    setNowParts(getNowParts());
+    const intervalMs = 60_000;
     tickerRef.current = setInterval(() => {
       setNowParts(getNowParts());
     }, intervalMs);
     return () => {
       if (tickerRef.current) clearInterval(tickerRef.current);
     };
-  }, []);
-
-  const todayKey = nowParts?.dateKey;
-  const effectiveDateKey = dateKey || todayKey;
-  const isTodayLiteral = !!effectiveDateKey && effectiveDateKey === todayKey;
+  }, [isTodayLiteral]);
 
   const clean = useMemo(() => {
     const base = (items || [])
@@ -593,7 +582,7 @@ export default function DayTimeline({
 
     const { items: withLane, laneCount } = computeLanes(base);
 
-    /** Повна доба 00:00–24:00 — годинні мітки та рельса збігаються з макетом, без «стиснутого» вікна. */
+    
     const startMin = 0;
     const endMin = MINUTES_IN_DAY;
 
@@ -629,14 +618,18 @@ export default function DayTimeline({
     return out;
   }, [clean.startMin, clean.endMin]);
 
-  /** Підпис години ховаємо, якщо зона тексту перетинається з пігулкою «зараз» або це та сама хвилина, що показана в пігулці (рівна :00). */
   const suppressedHourLabels = useMemo(() => {
     const s = new Set();
     if (!showNow) return s;
+
+    const hourStartMin = Math.floor(nowMin / 60) * 60;
+    s.add(hourStartMin);
+
     const nowBandTop = nowTop - NOW_ROW_H / 2 - NOW_BAND_VERTICAL_PAD_PX;
     const nowBandBottom = nowTop + NOW_ROW_H / 2 + NOW_BAND_VERTICAL_PAD_PX;
 
     for (const m of hoursLabels) {
+      if (s.has(m)) continue;
       if (nowMin % 60 === 0 && m === nowMin) {
         s.add(m);
         continue;
@@ -659,106 +652,81 @@ export default function DayTimeline({
     nowMin,
   ]);
 
-  const railCutHeightHour = HOUR_LABEL_H + HOUR_RAIL_GAP_Y * 2;
+  const liveHourBand = useMemo(() => {
+    if (!showNow) return null;
+    if (nowMin % 60 === 0) return null;
+    const hourStartMin = Math.floor(nowMin / 60) * 60;
+    const nextHourStart = hourStartMin + 60;
+    const yHourTop = TOP_INSET + (hourStartMin - clean.startMin) * PX_PER_MIN;
+    const yNextHourTop = TOP_INSET + (nextHourStart - clean.startMin) * PX_PER_MIN;
+    const blockTopBase = yHourTop + TIME_LABEL_SHIFT_Y;
+    const pillTop = nowTop - NOW_ROW_H / 2;
+    const blockBottom = blockTopBase + HOUR_LABEL_H;
+    const overlap = blockBottom - (pillTop - LIVE_HOUR_PILL_MIN_GAP);
+    const anchorShiftY =
+      overlap > 0 ? -Math.min(Math.ceil(overlap), 56) : 0;
+    return {
+      hourStartMin,
+      nextHourStart,
+      yHourTop,
+      yNextHourTop,
+      anchorShiftY,
+    };
+  }, [
+    showNow,
+    nowMin,
+    TOP_INSET,
+    clean.startMin,
+    PX_PER_MIN,
+    nowTop,
+  ]);
 
-  /**
-   * Рельса з «вікнами» без лінії на тексті годин і на пігулці «зараз».
-   * На рівній годині — один об’єднаний виріз (година + пігулка), щоб лінія не проходила крізь час.
-   */
-  const railLayout = useMemo(() => {
-    const labelSet = new Set(hoursLabels);
-    const mergedOnHour =
-      showNow && nowMin % 60 === 0 && labelSet.has(nowMin);
+  
+  const railVerticalBodySegments = useMemo(() => {
+    const yMax = railGeometryHeight;
+    const blocks = [];
 
-    const byMinute = new Map();
     for (const m of hoursLabels) {
-      if (mergedOnHour && m === nowMin) {
-        continue;
-      }
-      byMinute.set(m, 'hour');
+      if (suppressedHourLabels.has(m)) continue;
+      const top =
+        TOP_INSET +
+        (m - clean.startMin) * PX_PER_MIN +
+        TIME_LABEL_SHIFT_Y -
+        HOUR_RAIL_GAP_Y;
+      blocks.push({ top, bottom: top + HOUR_LABEL_RAIL_GAP_H });
     }
-    if (showNow && mergedOnHour) {
-      byMinute.set(nowMin, 'merged');
+
+    if (liveHourBand) {
+      const top =
+        liveHourBand.yHourTop +
+        TIME_LABEL_SHIFT_Y +
+        liveHourBand.anchorShiftY -
+        HOUR_RAIL_GAP_Y;
+      blocks.push({ top, bottom: top + HOUR_LABEL_RAIL_GAP_H });
     }
-    /** Для «зараз» не на рівні :00 — не робимо boundary-виріз: вісь суцільна, пігулка перекриває лише свою смугу. */
 
-    const minutes = [...byMinute.keys()].sort((a, b) => a - b);
-
-    const cutMetas = minutes.map((m, i) => {
-      const kind = byMinute.get(m);
-      if (kind === 'merged') {
+    if (showNow) {
+      const labelSet = new Set(hoursLabels);
+      const onRoundHour = nowMin % 60 === 0 && labelSet.has(nowMin);
+      if (onRoundHour) {
+        const m = nowMin;
         const hourTop =
           TOP_INSET +
           (m - clean.startMin) * PX_PER_MIN +
           TIME_LABEL_SHIFT_Y -
           HOUR_RAIL_GAP_Y;
-        const hourBottom = hourTop + railCutHeightHour;
+        const hourBottom = hourTop + HOUR_LABEL_RAIL_GAP_H;
         const bandH = NOW_ROW_H + NOW_BAND_VERTICAL_PAD_PX * 2;
         const bandTop = nowTop - bandH / 2;
         const bandBottom = bandTop + bandH;
-        const top = Math.min(hourTop, bandTop);
-        const height = Math.max(hourBottom, bandBottom) - top;
-        return { key: `cut-merged-${m}`, minute: m, kind: 'merged', top, height };
+        blocks.push({
+          top: Math.min(hourTop, bandTop),
+          bottom: Math.max(hourBottom, bandBottom),
+        });
+      } else {
+        const half = NOW_PILL_BLOCK_H / 2 + 2;
+        blocks.push({ top: nowTop - half, bottom: nowTop + half });
       }
-      if (kind === 'hour') {
-        const top =
-          TOP_INSET +
-          (m - clean.startMin) * PX_PER_MIN +
-          TIME_LABEL_SHIFT_Y -
-          HOUR_RAIL_GAP_Y;
-        return { key: `cut-${m}`, minute: m, kind, top, height: railCutHeightHour };
-      }
-      const prev = i > 0 ? minutes[i - 1] : null;
-      const next = i < minutes.length - 1 ? minutes[i + 1] : null;
-      const upPx = prev != null ? (m - prev) * PX_PER_MIN : 120;
-      const downPx = next != null ? (next - m) * PX_PER_MIN : 120;
-      const room = Math.min(upPx, downPx);
-      const h = Math.round(
-        Math.max(
-          8,
-          Math.min(TASK_BOUNDARY_LABEL_H + 12, room * 0.36),
-        ),
-      );
-      const topPad = Math.max(2, (h - TASK_BOUNDARY_LABEL_H) / 2);
-      const top =
-        TOP_INSET +
-        (m - clean.startMin) * PX_PER_MIN +
-        TIME_LABEL_SHIFT_Y -
-        topPad;
-      return { key: `cut-b-${m}`, minute: m, kind, top, height: h };
-    });
-
-    return { cuts: cutMetas };
-  }, [
-    hoursLabels,
-    showNow,
-    nowMin,
-    nowTop,
-    TOP_INSET,
-    clean.startMin,
-    PX_PER_MIN,
-    railCutHeightHour,
-  ]);
-
-  /**
-   * Вертикальна вісь: SVG-сегменти між вирізами + одна нативна смуга y∈[0, верх першого вирізу) — суцільна,
-   * без розривів (раніше y>0..перший виріз лишався без лінії / дробився через gapEnd > cur+1).
-   */
-  const { railVerticalBodySegments, railSolidAboveFirstHour } = useMemo(() => {
-    const yMax = railGeometryHeight;
-    const blocks = railLayout.cuts.map((c) => ({
-      top: c.top,
-      bottom: c.top + c.height,
-    }));
-
-    const nowOnHourTick =
-      showNow && nowMin % 60 === 0 && hoursLabels.includes(nowMin);
-    if (showNow && !nowOnHourTick) {
-      const pad = NOW_BAND_VERTICAL_PAD_PX;
-      blocks.push({
-        top: nowTop - NOW_ROW_H / 2 - pad,
-        bottom: nowTop + NOW_ROW_H / 2 + pad,
-      });
     }
 
     blocks.sort((a, b) => a.top - b.top);
@@ -771,19 +739,11 @@ export default function DayTimeline({
       }
     }
 
-    const firstCutTop = merged.length > 0 ? merged[0].top : yMax;
-    const railSolidAboveFirstHour =
-      merged.length > 0 && firstCutTop > 0.5
-        ? { y1: 0, y2: Math.min(firstCutTop, yMax) }
-        : null;
-
     const segments = [];
     let cur = 0;
-    for (let i = 0; i < merged.length; i++) {
-      const b = merged[i];
+    for (const b of merged) {
       const gapEnd = Math.min(b.top, yMax);
-      const skipSvgForNativeStrip = railSolidAboveFirstHour && i === 0;
-      if (!skipSvgForNativeStrip && gapEnd > cur + 0.5) {
+      if (gapEnd > cur + 0.5) {
         segments.push({ y1: cur, y2: gapEnd });
       }
       cur = Math.max(cur, Math.min(b.bottom, yMax));
@@ -792,20 +752,21 @@ export default function DayTimeline({
     if (yMax > cur + 0.5) {
       segments.push({ y1: cur, y2: yMax });
     }
-    return {
-      railVerticalBodySegments: segments,
-      railSolidAboveFirstHour,
-    };
+    return segments;
   }, [
-    railLayout,
+    railGeometryHeight,
+    hoursLabels,
+    suppressedHourLabels,
+    liveHourBand,
     showNow,
     nowMin,
     nowTop,
-    hoursLabels,
-    railGeometryHeight,
+    TOP_INSET,
+    clean.startMin,
+    PX_PER_MIN,
   ]);
 
-  /** Кластер перетинів по id — для розкладки в 2–3 колонки без каруселі. */
+  
   const taskIdToOverlapCluster = useMemo(() => {
     const clusters = buildOverlapClusters(clean.items);
     const m = new Map();
@@ -825,7 +786,7 @@ export default function DayTimeline({
   }, [draggingId]);
 
   const dragHoldRef = useRef({ taskId: null, timer: null, armed: false });
-  /** Після спрацювання таймера утримання — відпускання не відкриває «редагувати» (лише тягти час). */
+  
   const dragArmFiredRef = useRef(false);
   const lastTimeDragTaskIdRef = useRef(null);
 
@@ -864,7 +825,7 @@ export default function DayTimeline({
   const [timelineContentW, setTimelineContentW] = useState(0);
   const { width: windowWidth } = useWindowDimensions();
 
-  /** Горизонтальна суцільна лінія «зараз»: від правого краю пігулки до краю контенту. */
+  
   const nowHorizontalDashGeom = useMemo(() => {
     if (!showNow) return null;
     const measured = timelineContentW;
@@ -883,11 +844,7 @@ export default function DayTimeline({
     return clean.items.reduce((acc, it) => Math.min(acc, it.startMin), Number.POSITIVE_INFINITY);
   }, [clean.items]);
 
-  /**
-   * Нова дата — знову дозволяємо автоскрол (і після ручного скролу на іншому дні).
-   * Автоскрол лише початковий: далі користувач гойдає всю добу вгору й униз як завжди
-   * (scrollEnabled вимикається лише під час перетягування часу завдання).
-   */
+  
   useEffect(() => {
     userInteractedRef.current = false;
     lastAutoScrollKeyRef.current = null;
@@ -901,7 +858,7 @@ export default function DayTimeline({
     const scrollIdentity = `${effectiveDateKey}:${hasTasks ? String(firstItemStartMin) : 'none'}`;
     if (lastAutoScrollKeyRef.current === scrollIdentity) return;
 
-    /** Початкова позиція — біля першого завдання (навіть «сьогодні»), не «зараз». */
+    
     let targetMin;
     if (hasTasks) {
       targetMin = firstItemStartMin;
@@ -960,20 +917,16 @@ export default function DayTimeline({
                 y2={seg.y2}
                 stroke={TIMELINE_RAIL_AXIS_STROKE}
                 strokeOpacity={1}
-                strokeWidth={TIMELINE_RAIL_STROKE_WIDTH_PX}
+                strokeWidth={
+                  Platform.OS === 'android'
+                    ? Math.max(2, TIMELINE_RAIL_STROKE_WIDTH_PX)
+                    : TIMELINE_RAIL_STROKE_WIDTH_PX
+                }
                 strokeLinecap="butt"
               />
             ))}
           </Svg>
         </View>
-
-        {railLayout.cuts.map((c) => (
-          <View
-            key={c.key}
-            style={[styles.hourRailCut, { top: c.top, height: c.height }]}
-            pointerEvents="none"
-          />
-        ))}
 
         {hoursLabels.map((m) => (
           <View
@@ -995,8 +948,38 @@ export default function DayTimeline({
           </View>
         ))}
 
+        {liveHourBand ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.hourSlot,
+              styles.hourSlotPositioned,
+              { top: liveHourBand.yHourTop },
+              {
+                transform: [
+                  { translateY: TIME_LABEL_SHIFT_Y + liveHourBand.anchorShiftY },
+                ],
+              },
+            ]}
+            collapsable={false}
+          >
+            <Text style={styles.hourText} numberOfLines={1} allowFontScaling={false}>
+              {formatTimelineLabel(liveHourBand.hourStartMin)}
+            </Text>
+          </View>
+        ) : null}
+
         {showNow ? (
-          <View style={[styles.nowRow, { top: nowTop - NOW_ROW_H / 2 }]} pointerEvents="none">
+          <View
+            style={[
+              styles.nowRow,
+              {
+                top: nowTop - NOW_ROW_H / 2,
+                width: SCALE_COL_W,
+              },
+            ]}
+            pointerEvents="none"
+          >
             <View style={styles.nowPill}>
               <Text
                 style={styles.nowPillText}
@@ -1028,13 +1011,13 @@ export default function DayTimeline({
 
               const overlapCluster = taskIdToOverlapCluster.get(tid) ?? [it];
               const clusterSize = overlapCluster.length;
-              /** Скільки реально колонок (унікальних смуг), а не кількість карток у кластері. */
+              
               const maxLaneInCluster = overlapCluster.reduce(
                 (m, x) => Math.max(m, x.lane ?? 0),
                 0,
               );
               const overlapLaneCount = Math.max(1, maxLaneInCluster + 1);
-              /** Не індекс у відсортованому списку — інакше дві задачі з lane 0 опинялись у колонках 0 і 1. */
+              
               const overlapColumnIndex = it.lane ?? 0;
 
               const laneW = timelineLaneWidth > 0 ? timelineLaneWidth : undefined;
@@ -1426,7 +1409,7 @@ export default function DayTimeline({
                   : manualOverride === 'completed'
                     ? true
                     : isCompleted;
-              /** Одна задача в кластері часу — повна ширина; 2+ перетини — вузька колонка поруч. */
+              
               const soloSlotLayout = clusterSize === 1;
 
               const rawTop = TOP_INSET + (it.startMin - clean.startMin) * PX_PER_MIN;
@@ -1806,81 +1789,44 @@ export default function DayTimeline({
           </View>
         ) : null}
 
-        {railSolidAboveFirstHour ? (
-          <View
-            pointerEvents="none"
-            style={[styles.railSolidAboveFirstHourLayer, { height: railGeometryHeight }]}
-          >
-            {/*
-              Нативний View (не SVG) — суцільна смуга над 0:00; пунктир «зараз» не може
-              накластись як вертикаль через round-cap / AA на Line.
-            */}
-            <View
-              style={{
-                position: 'absolute',
-                left:
-                  TIMELINE_RAIL_CENTER_X_PX - Math.ceil(TIMELINE_RAIL_VIEW_LINE_PX) / 2,
-                top: railSolidAboveFirstHour.y1,
-                width: Math.max(1, Math.ceil(TIMELINE_RAIL_VIEW_LINE_PX)),
-                height: Math.max(
-                  1,
-                  railSolidAboveFirstHour.y2 - railSolidAboveFirstHour.y1,
-                ),
-                backgroundColor: TIMELINE_RAIL_AXIS_STROKE,
-              }}
-            />
-          </View>
-        ) : null}
       </View>
     </GHScrollView>
   );
 }
 
 const TIME_LABEL_W = TIMELINE_HOUR_LABEL_WIDTH_PX;
-const RAIL_LINE_LEFT_X = TIMELINE_RAIL_LINE_LEFT_PX;
 const FIGMA_RAIL_X = TIMELINE_RAIL_CENTER_X_PX;
 const SCALE_COL_W = TIMELINE_SCALE_COLUMN_WIDTH_PX;
-/** Розміри пігулки «зараз» як у Figma (40×16, radius 8); центрується на рейці. */
+
 const NOW_PILL_TOTAL_W = 40;
 const NOW_PILL_BLOCK_H = 16;
 const NOW_PILL_RADIUS = 8;
-/** Трохи вища за пігулку — зазор для перетинів з підписами :00. */
+
 const NOW_ROW_H = 28;
-/** Зазор між правим краєм пігулки «зараз» і горизонтальною лінією (px). */
+
 const NOW_HORIZ_DASH_AFTER_PILL_GAP_PX = 5;
-/** Вертикальний запас навколо пігулки «зараз» при перевірці перетину з підписами :00 (px). */
+
 const NOW_BAND_VERTICAL_PAD_PX = 8;
-const TASK_BOUNDARY_LABEL_H = 22;
-/** Малі відступи: між задачами по вертикалі, від лівого/правого краю колонки таймлайну. */
+
 const TASK_TIMELINE_INSET = TIMELINE_HORIZONTAL_RHYTHM_PX;
 const CARD_VERTICAL_GAP = TASK_TIMELINE_INSET;
-/**
- * Мінімальна висота картки (px). Менше ~40px з overflow:hidden на картці час/назва повністю зрізаються — виглядає як «порожні» задачі.
- * Короткі слоти трохи вищі за «чисту» шкалу, зате текст залишається читабельним.
- */
+
 const CARD_SLOT_MIN_HEIGHT = 44;
-/**
- * Поріг «короткого» слота на шкалі (px, уже з CARD_VERTICAL_GAP). Нижче — макет один ряд «початок + назва».
- * Не плутати з height картки: вона мінімум CARD_SLOT_MIN_HEIGHT, тому умога height &lt; 40 ніколи б не спрацювала.
- */
+
 const COMPACT_LAYOUT_MAX_NATURAL_H = 56;
 const CAROUSEL_CARD_GAP = TASK_TIMELINE_INSET;
-/** Ширина білого вирізу на осі (лінія 1.5px + AA + бокові відступи). */
-const HOUR_RAIL_CUT_WIDTH_PX =
-  TIMELINE_RAIL_VIEW_LINE_PX + TIMELINE_RAIL_SIDE_GUTTER_PX * 2 + 2;
-/** Зсув підпису від лінії години; разом з padding — «повітря» зверху/знизу між текстом і вертикальною релькою. */
+
 const TIME_LABEL_SHIFT_Y = -12;
-/** Вертикальний падінг підпису години (менше — ближче до лінії зверху/знизу). */
+
 const HOUR_LABEL_PAD_Y = 4;
-/** Figma: Montserrat Medium 12, line height Auto ≈ 15 для шару тексту. */
+
 const HOUR_TEXT_LINE_HEIGHT_PX = 15;
-/** Висота смуги тексту години для перетинів із пігулкою (lineHeight + paddingVertical у `hourText`). */
+
 const HOUR_LABEL_H = HOUR_TEXT_LINE_HEIGHT_PX + HOUR_LABEL_PAD_Y * 2;
-/**
- * Відступ вирізу рельси навколо підпису години — «повітря» між текстом :00 і вертикальною лінією.
- */
+
 const HOUR_RAIL_GAP_Y = 2;
-/** Подовження вертикалі униз (px), після останньої години. */
+const HOUR_LABEL_RAIL_GAP_H = HOUR_LABEL_H + HOUR_RAIL_GAP_Y * 2;
+
 const RAIL_EXTEND_BELOW_CONTENT_PX = 14;
 
 const styles = StyleSheet.create({
@@ -1900,7 +1846,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'visible',
   },
-  /** Резерв ширини під шкалу в рядку flex; підписи годин — absolute одразу в content (без повноекранної обгортки, щоб не ховати рельсу на Android). */
+  
   scaleColSpacer: {
     width: SCALE_COL_W,
     flexShrink: 0,
@@ -1914,7 +1860,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 8,
   },
-  /** Мітки :00 — як у Figma: Medium 12, #898989, letter spacing 0. */
+  
   hourText: {
     fontSize: 12,
     color: TIMELINE_RAIL_STROKE,
@@ -1937,7 +1883,7 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     paddingTop: 0,
   },
-  /** Вертикальна вісь між мітками часу (під вирізами тексту / «зараз»). */
+  
   railVerticalDashLayer: {
     position: 'absolute',
     left: 0,
@@ -1953,26 +1899,9 @@ const styles = StyleSheet.create({
     zIndex: 20,
     ...Platform.select({ android: { elevation: 0 }, default: {} }),
   },
-  /** Відрізок осі над 0:00 — лише суцільна лінія, поверх пунктиру «зараз» (без strokeDasharray). */
-  railSolidAboveFirstHourLayer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    zIndex: 22,
-    ...Platform.select({ android: { elevation: 0 }, default: {} }),
-  },
-  hourRailCut: {
-    position: 'absolute',
-    left: RAIL_LINE_LEFT_X - TIMELINE_RAIL_SIDE_GUTTER_PX - 1,
-    width: HOUR_RAIL_CUT_WIDTH_PX,
-    backgroundColor: '#FFFFFF',
-    zIndex: 7,
-  },
   nowRow: {
     position: 'absolute',
     left: 0,
-    right: 0,
     height: NOW_ROW_H,
     justifyContent: 'center',
     zIndex: 30,
@@ -1981,8 +1910,8 @@ const styles = StyleSheet.create({
   },
   nowPill: {
     width: NOW_PILL_TOTAL_W,
-    height: NOW_PILL_BLOCK_H,
     paddingHorizontal: 0,
+    height: NOW_PILL_BLOCK_H,
     borderRadius: NOW_PILL_RADIUS,
     backgroundColor: NOW_PILL_BG,
     alignItems: 'center',
@@ -1994,7 +1923,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
     ...Platform.select({ android: { elevation: 0 }, default: {} }),
   },
-  /** Figma: Montserrat Medium 12, letter spacing 0, по центру в пігулці 16px. */
+  
   nowPillText: {
     fontSize: 12,
     color: NOW_PILL_TEXT,
@@ -2025,7 +1954,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     zIndex: 4,
   },
-  /** Поверхня вертикального перетягування (час): смуга + текст, без галочки. */
+  
   cardDragSurface: {
     flex: 1,
     flexDirection: 'row',
@@ -2048,7 +1977,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     flexGrow: 1,
   },
-  /** Одна задача в слоті — ряд на всю ширину lane без мін. ширини для «прокрутки вбік». */
+  
   carouselContentSoloFullWidth: {
     width: '100%',
     minWidth: '100%',
@@ -2096,7 +2025,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 0,
   },
-  /** Та сама ширина колонки, що й `stripPanHandle` — щоб зазор смуга→текст збігався з основним таймлайном. */
+  
   stripSlot: {
     width: TASK_STRIP_COLUMN_WIDTH_PX,
     flexShrink: 0,
@@ -2109,7 +2038,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
-  /** Висока картка в каруселі — вертикальне центрування внутрішнього слота, як у `stripPanHandleTall`. */
+  
   stripSlotCarouselTall: {
     justifyContent: 'center',
     paddingTop: 0,
@@ -2119,7 +2048,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 0,
   },
-  /** Зона вертикального перетягування часу — не батько горизонтального ScrollView (Android). */
+  
   stripPanHandle: {
     alignSelf: 'stretch',
     alignItems: 'stretch',
@@ -2132,7 +2061,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
-  /** Висока картка: відступ смуги від краю картки, вертикальне центрування «пігулки». */
+  
   stripPanHandleTall: {
     justifyContent: 'center',
     paddingTop: 0,
@@ -2178,7 +2107,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
     alignSelf: 'flex-start',
   },
-  /** Solo + високий слот — смуга ліворуч у колонці, по вертикалі по центру слота. */
+  
   stripPillSingleTall: {
     marginLeft: 0,
     alignSelf: 'center',
@@ -2206,7 +2135,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
-  /** Час → заголовок → описание зверху вниз (без вертикального «центрування» всього блоку). */
+  
   cardBodyStackFromTop: {
     justifyContent: 'flex-start',
     paddingTop: TIMELINE_HORIZONTAL_RHYTHM_PX,
@@ -2222,7 +2151,7 @@ const styles = StyleSheet.create({
     paddingTop: TIMELINE_HORIZONTAL_RHYTHM_PX,
     paddingBottom: TIMELINE_HORIZONTAL_RHYTHM_PX + 2,
   },
-  /** Одна картка в дні + високий слот — час зверху, галочка знизу. */
+  
   cardBodySingleTall: {
     justifyContent: 'flex-start',
     paddingTop: TIMELINE_HORIZONTAL_RHYTHM_PX,
@@ -2241,7 +2170,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginBottom: TIMELINE_HORIZONTAL_RHYTHM_PX,
   },
-  /** Короткий слот: лише назва (без часу); з описом — стек зверху, опис у common footer. */
+  
   compactTaskLineWrap: {
     width: '100%',
     minWidth: 0,
@@ -2260,7 +2189,7 @@ const styles = StyleSheet.create({
   compactTitleOnly: {
     color: '#1A1A1A',
   },
-  /** Одна картка на слот: час + тривалість зверху зліва як заголовок; іконка нотатки справа в цьому рядку. */
+  
   metaRowSingleHeader: {
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -2285,7 +2214,7 @@ const styles = StyleSheet.create({
   timeRangeTextTall: {
     color: 'rgba(137,137,137,0.95)',
   },
-  /** Тривалість ≥ 1 год: зліва внизу картки, навпроти галочки (справа). */
+  
   tallDurationByCheck: {
     position: 'absolute',
     left: TASK_CARD_TEXT_INSET_FROM_CARD_LEFT_PX,
@@ -2322,7 +2251,7 @@ const styles = StyleSheet.create({
     minHeight: 0,
     flexShrink: 1,
   },
-  /** Розтягується лише коли під заголовком немає другого блоку — інакше опис лишається одразу під назвою. */
+  
   tallTitleBlockGrow: {
     flex: 1,
     minHeight: 0,

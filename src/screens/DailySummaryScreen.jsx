@@ -18,7 +18,7 @@ import { useTasks } from '../context/TasksContext';
 import { useSelectedDate } from '../context/SelectedDateContext';
 import { getDayStats } from '../services/DaySummaryService';
 import {
-  toDateKey,
+  toLocalDateKey,
   resolveCalendarListDateKey,
   isItemOnCalendarDay,
 } from '../utils/calendarDay';
@@ -43,18 +43,17 @@ const formatMinutes = (totalMinutes) => {
 const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
   const { tasks: allTasks, setTaskCompleted, deleteTask, rescheduleTask } = useTasks();
-  const { selectedDate, todayKyiv } = useSelectedDate();
+  const { selectedDate, todayCalendar } = useSelectedDate();
 
   const [localTasks, setLocalTasks] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [rescheduleTarget, setRescheduleTarget] = useState(null);
 
-  // Sync local list when context or selected date changes
   useEffect(() => {
-    const key = resolveCalendarListDateKey(selectedDate, todayKyiv);
+    const key = resolveCalendarListDateKey(selectedDate, todayCalendar);
     const filtered = (allTasks || []).filter((t) => isItemOnCalendarDay(t, key));
     setLocalTasks(filtered);
-  }, [allTasks, selectedDate, todayKyiv]);
+  }, [allTasks, selectedDate, todayCalendar]);
 
   const stats = getDayStats(localTasks);
   const workedLabel = formatMinutes(stats.actualMinutes);
@@ -94,7 +93,7 @@ const DailySummaryScreen = ({ visible, onClose }) => {
       setRescheduleTarget(null);
       return;
     }
-    const newKey = toDateKey(newDate);
+    const newKey = toLocalDateKey(newDate);
     if (newKey) {
       rescheduleTask(id, newKey);
     }

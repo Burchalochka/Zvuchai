@@ -31,7 +31,7 @@ import { COLORS, SPACING, FONTS } from '../styles/theme';
 import { getTasksForDate } from '../services/DataLayerService';
 import { getDayStats } from '../services/DaySummaryService';
 import {
-  toDateKey,
+  toLocalDateKey,
   resolveCalendarListDateKey,
   isItemOnCalendarDay,
   itemScheduledDayKey,
@@ -70,7 +70,7 @@ const HomeScreen = () => {
     reorderHabitsForDate,
   } = useTasks();
   const { language } = useLanguage();
-  const { selectedDate, todayKyiv } = useSelectedDate();
+  const { selectedDate, todayCalendar } = useSelectedDate();
   useModal();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('tasks');
@@ -101,7 +101,7 @@ const HomeScreen = () => {
     if (calendarStripMode === 'year') setCalendarStripMode('month');
   }, [calendarStripMode]);
 
-  const selectedKey = resolveCalendarListDateKey(selectedDate, todayKyiv);
+  const selectedKey = resolveCalendarListDateKey(selectedDate, todayCalendar);
   const tasksForDay = (tasks || []).filter((t) => isItemOnCalendarDay(t, selectedKey));
   const habitsForDay = (habits || []).filter((h) => isItemOnCalendarDay(h, selectedKey));
 
@@ -222,7 +222,7 @@ const HomeScreen = () => {
       setRescheduleTarget(null);
       return;
     }
-    const newKey = toDateKey(newDate);
+    const newKey = toLocalDateKey(newDate);
     if (!newKey || newKey === item.date) {
       setRescheduleTarget(null);
       return;

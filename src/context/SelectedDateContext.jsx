@@ -19,24 +19,9 @@ export const useSelectedDate = () => {
   return context;
 };
 
-const KYIV_TZ = 'Europe/Kyiv';
-
-function getKyivToday() {
-  // Derive calendar date in Kyiv regardless of device timezone.
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: KYIV_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-
-  const year = Number(parts.find((p) => p.type === 'year')?.value);
-  const month = Number(parts.find((p) => p.type === 'month')?.value);
-  const day = Number(parts.find((p) => p.type === 'day')?.value);
-
-  // Construct a Date in local timezone at local midnight for that Kyiv calendar day.
-  // We only use getFullYear/getMonth/getDate comparisons across the app.
-  return new Date(year, month - 1, day);
+function getLocalToday() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 function sameCalendarDay(a, b) {
@@ -48,11 +33,17 @@ function sameCalendarDay(a, b) {
   );
 }
 
+function msUntilNextLocalMidnight() {
+  const d = new Date();
+  const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0);
+  return Math.max(1, next.getTime() - d.getTime());
+}
+
 export const SelectedDateProvider = ({ children }) => {
-  const [selectedDate, setSelectedDateState] = useState(() => getKyivToday());
-  // When true, keep selectedDate in sync with "today" in Kyiv.
-  const [followKyivToday, setFollowKyivToday] = useState(true);
-  const lastKyivTodayRef = useRef(getKyivToday());
+  const [selectedDate, setSelectedDateState] = useState(() => getLocalToday());
+  const [followToday, setFollowToday] = useState(true);
+  const lastTodayRef = useRef(getLocalToday());
+  const [todayTick, setTodayTick] = useState(0);
 
   const setSelectedDate = useCallback((next) => {
     setSelectedDateState((prev) => {
@@ -62,44 +53,64 @@ export const SelectedDateProvider = ({ children }) => {
     });
   }, []);
 
-  const todayKyiv = useMemo(() => getKyivToday(), [selectedDate]);
+  const todayCalendar = useMemo(() => {
+    void todayTick;
+    return getLocalToday();
+  }, [selectedDate, todayTick]);
 
   useEffect(() => {
-    const kyivToday = getKyivToday();
-    setFollowKyivToday(sameCalendarDay(selectedDate, kyivToday));
+    const today = getLocalToday();
+    setFollowToday(sameCalendarDay(selectedDate, today));
   }, [selectedDate]);
 
   useEffect(() => {
-    // On app foreground: if we're following "today", resync to current Kyiv day.
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') return;
-      if (!followKyivToday) return;
-      const kyivToday = getKyivToday();
-      if (!sameCalendarDay(selectedDate, kyivToday)) {
-        setSelectedDateState(kyivToday);
+      const t = getLocalToday();
+      lastTodayRef.current = t;
+      setTodayTick((n) => n + 1);
+      if (followToday) {
+        setSelectedDateState(t);
       }
-      lastKyivTodayRef.current = kyivToday;
     });
     return () => sub.remove();
-  }, [followKyivToday, selectedDate]);
+  }, [followToday]);
 
   useEffect(() => {
-    // Tick to detect Kyiv day rollover (midnight Kyiv) while app is open.
     const id = setInterval(() => {
-      const kyivToday = getKyivToday();
-      const last = lastKyivTodayRef.current;
-      if (!sameCalendarDay(last, kyivToday)) {
-        lastKyivTodayRef.current = kyivToday;
-        if (followKyivToday) {
-          setSelectedDateState(kyivToday);
+      const today = getLocalToday();
+      const last = lastTodayRef.current;
+      if (!sameCalendarDay(last, today)) {
+        lastTodayRef.current = today;
+        setTodayTick((n) => n + 1);
+        if (followToday) {
+          setSelectedDateState(today);
         }
       }
     }, 60 * 1000);
     return () => clearInterval(id);
-  }, [followKyivToday]);
+  }, [followToday]);
+
+  useEffect(() => {
+    if (!followToday) return undefined;
+    let timeoutId;
+    const scheduleMidnight = () => {
+      timeoutId = setTimeout(() => {
+        const today = getLocalToday();
+        lastTodayRef.current = today;
+        setTodayTick((n) => n + 1);
+        setSelectedDateState(today);
+        scheduleMidnight();
+      }, msUntilNextLocalMidnight() + 300);
+    };
+    scheduleMidnight();
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [followToday]);
 
   return (
-    <SelectedDateContext.Provider value={{ selectedDate, setSelectedDate, todayKyiv }}>
+    <SelectedDateContext.Provider value={{ selectedDate, setSelectedDate, todayCalendar }}>
       {children}
     </SelectedDateContext.Provider>
   );

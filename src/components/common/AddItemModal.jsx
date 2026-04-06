@@ -40,11 +40,11 @@ import {
 const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const { tasks, habits, goals, addTask, addHabit, addGoal } = useTasks();
   const { language } = useLanguage();
-  const { selectedDate, todayKyiv } = useSelectedDate();
+  const { selectedDate, todayCalendar } = useSelectedDate();
   const [step, setStep] = useState('type');
   const [itemType, setItemType] = useState(null);
 
-  const selectedDateKey = resolveCalendarListDateKey(selectedDate, todayKyiv);
+  const selectedDateKey = resolveCalendarListDateKey(selectedDate, todayCalendar);
 
   const tasksToday = (tasks || []).filter(
     (t) =>

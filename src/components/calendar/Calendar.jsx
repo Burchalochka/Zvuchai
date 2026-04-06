@@ -24,7 +24,7 @@ import {
   dateFromKyivYMD,
   ymdToDateKey,
   isSameKyivCalendarDay,
-  toDateKey,
+  toLocalDateKey,
   kyivMonthGridRowCount,
 } from '../../utils/calendarDay';
 
@@ -92,7 +92,7 @@ function getWeekForDate(anchorDate) {
 
 const Calendar = ({ taskCountsByDate = {}, viewMode, onViewModeChange }) => {
   const { language } = useLanguage();
-  const { selectedDate: currentDate, setSelectedDate: setCurrentDate, todayKyiv } = useSelectedDate();
+  const { selectedDate: currentDate, setSelectedDate: setCurrentDate, todayCalendar } = useSelectedDate();
 
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [pickerDraft, setPickerDraft] = useState({ m0: 0, yIdx: 50 });
@@ -278,10 +278,10 @@ const Calendar = ({ taskCountsByDate = {}, viewMode, onViewModeChange }) => {
   };
 
   const pickerYearValues = useMemo(() => {
-    const t = todayKyiv instanceof Date ? todayKyiv : new Date();
+    const t = todayCalendar instanceof Date ? todayCalendar : new Date();
     const cy = t.getFullYear();
     return Array.from({ length: 101 }, (_, idx) => cy - 50 + idx);
-  }, [todayKyiv]);
+  }, [todayCalendar]);
 
   const openMonthPicker = useCallback(() => {
     const k = getKyivYMD(currentDate);
@@ -398,7 +398,7 @@ const Calendar = ({ taskCountsByDate = {}, viewMode, onViewModeChange }) => {
                     {dayNum}
                   </Text>
                 </View>
-                {renderDayDots(toDateKey(dateObj))}
+                {renderDayDots(toLocalDateKey(dateObj))}
               </TouchableOpacity>
             );
           })}
