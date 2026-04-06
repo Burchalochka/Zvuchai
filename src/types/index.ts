@@ -16,16 +16,19 @@ export interface BaseItem {
   type: ItemType;
   title: string;
   description: string;
-  date: string | null;
-  startTime: string;
-  endTime: string;
+  date: string | null;           // 'YYYY-MM-DD'
+  startDate: string | null;      // 'YYYY-MM-DD' for date ranges
+  endDate: string | null;        // 'YYYY-MM-DD' for date ranges
+  startTime: string | null;      // 'HH:MM' or null for inbox tasks
+  endTime: string | null;        // 'HH:MM' or null for inbox tasks
   status: ItemStatus;
   themeColor: string;
   priority: Priority;
   difficulty: Difficulty;
   estimatedDuration: number | null;
-  dueDate: string | null;
-  deadline: string | null;
+  dueDate: string | null;        // 'YYYY-MM-DD'
+  deadline: string | null;       // 'YYYY-MM-DD HH:MM'
+  isInbox: boolean;              // true if task has no specific time
   tags: string[];
   reminder: Reminder;
   linkedGoalId: string | null;

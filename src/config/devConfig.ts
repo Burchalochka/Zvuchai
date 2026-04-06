@@ -38,6 +38,10 @@ export const DEV_CONFIG = {
   /** Language used when SKIP_ONBOARDING is true. */
   DEFAULT_LANGUAGE: 'uk' as 'uk' | 'en',
 
+  // ── Backend ────────────────────────────────────────────────────────────────
+  /** Backend server URL for audio processing and AI parsing */
+  BACKEND_URL: 'http://192.168.1.110:3000',
+
   // ── Day timeline UI (experimental, вимкнено за рішенням продукту) ───────────
   // /** Час на високих картках справа над галочкою замість рядка зліва. */
   // TALL_CARD_TIME_BY_CHECK: true,
