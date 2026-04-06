@@ -12,6 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Header from '../components/common/Header';
+import { useTasks } from '../context/TasksContext';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
 
 const TAB_BAR_HEIGHT = 74;
@@ -99,11 +100,56 @@ const SUB_TABS = {
 
 const InboxScreen = () => {
   const insets = useSafeAreaInsets();
+  const { tasks } = useTasks();
 
   const [activeMainTab, setActiveMainTab] = useState(MAIN_TABS.NO_DEADLINE);
   const [activeSubTab, setActiveSubTab] = useState(SUB_TABS.ALL);
   const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
   const [isSideMenuVisible, setIsSideMenuVisible] = useState(false);
+
+  // Convert real tasks to inbox task format
+  const inboxTasks = useMemo(() => {
+    return tasks
+      .filter(task => task.isInbox === true)
+      .map(task => {
+        // Determine date info based on task date
+        let dateInfo = 'Без дати';
+        if (task.date) {
+          const today = new Date().toISOString().split('T')[0];
+          if (task.date === today) {
+            dateInfo = 'Сьогодні';
+          } else {
+            dateInfo = task.date;
+          }
+        } else if (task.startDate && task.endDate) {
+          dateInfo = 'Діапазон дат';
+        }
+
+        // Determine deadline type based on task properties
+        let deadlineType = 'none';
+        if (task.deadline) {
+          deadlineType = 'exact';
+        } else if (task.startDate && task.endDate) {
+          deadlineType = 'flexible';
+        }
+
+        // Determine status for AI unsure tab
+        const status = task.status === 'requires_review' ? 'requires_review' : 'pending';
+
+        return {
+          id: task.id,
+          title: task.title,
+          startTime: task.startTime,
+          durationMinutes: task.estimatedDuration,
+          status,
+          confidenceScore: task.confidenceScore || undefined,
+          deadlineType,
+          dateInfo,
+          timeInfo: task.startTime,
+          dateRange: task.startDate && task.endDate ? `${task.startDate} — ${task.endDate}` : undefined,
+        };
+      });
+  }, [tasks]);
 
   const handleMainTabChange = (tabKey) => {
     setActiveMainTab(tabKey);
@@ -126,15 +172,15 @@ const InboxScreen = () => {
   const filteredTasks = useMemo(() => {
     const base =
       activeMainTab === MAIN_TABS.AI_UNSURE
-        ? MOCK_TASKS.filter((t) => t.status === 'requires_review')
-        : MOCK_TASKS.filter((t) => t.status !== 'requires_review');
+        ? inboxTasks.filter((t) => t.status === 'requires_review')
+        : inboxTasks.filter((t) => t.status !== 'requires_review');
 
     if (activeMainTab === MAIN_TABS.AI_UNSURE && activeSubTab === SUB_TABS.TODAY) {
       return base.filter((t) => (t.dateInfo || '').toLowerCase().includes('сьогодні'));
     }
 
     return base;
-  }, [activeMainTab, activeSubTab]);
+  }, [activeMainTab, activeSubTab, inboxTasks]);
 
   const scrollBottomPadding = TAB_BAR_HEIGHT + insets.bottom + SPACING.lg;
 

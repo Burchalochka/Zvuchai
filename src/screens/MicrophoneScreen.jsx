@@ -224,8 +224,8 @@ export default function MicrophoneScreen() {
    */
   const testBackendConnection = async () => {
     try {
-      const testUrl = 'http://192.168.1.110:3000/health';
-      const response = await fetch('http://192.168.1.110:3000/health', {
+      const testUrl = 'http://localhost:3000/api/process-audio';
+      const response = await fetch('http://localhost:3000/health', {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         timeout: 5000,
@@ -305,9 +305,9 @@ export default function MicrophoneScreen() {
       console.log('Attempting upload to:', `${BACKEND_URL}/api/process-audio`);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 30 second timeout
       
-      const response = await fetch('http://192.168.1.110:3000/api/process-audio', {
+      const response = await fetch('http://localhost:3000/api/process-audio', {
         method: 'POST',
         body: formData,
         headers: {
@@ -336,29 +336,147 @@ export default function MicrophoneScreen() {
         
         // Store parsed task if available
         if (data.task) {
-          const parsedTask = {
+          // Helper function to format time as HH:MM
+          const formatTime = (hours, minutes) => {
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          };
+
+          // Helper function to parse HH:MM string to minutes
+          const parseTimeToMinutes = (timeStr) => {
+            if (!timeStr) return null;
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+          };
+
+          // Helper function to calculate time 1 hour before deadline
+          const calculateStartTimeFromDeadline = (deadlineStr) => {
+            if (!deadlineStr) return null;
+            // Parse deadline format: "YYYY-MM-DD HH:MM"
+            const [datePart, timePart] = deadlineStr.split(' ');
+            // We parse date part but don't need it for time calculation
+            const [_year, _month, _day] = datePart.split('-').map(Number);
+            const [hour, minute] = timePart.split(':').map(Number);
+            
+            // Calculate 1 hour before
+            let totalMinutes = hour * 60 + minute;
+            totalMinutes -= 60; // 1 hour before
+            
+            if (totalMinutes < 0) {
+              totalMinutes += 24 * 60; // Wrap to previous day
+            }
+            
+            const startHour = Math.floor(totalMinutes / 60);
+            const startMinute = totalMinutes % 60;
+            return formatTime(startHour, startMinute);
+          };
+
+          // Get current device time
+          const now = new Date();
+          const currentHour = now.getHours();
+          const currentMinute = now.getMinutes();
+          
+          // Apply business rules with new Universal Inbox Rule
+          // Get fields from backend response (including new startDate/endDate for ranges)
+          let finalDate = data.task.date || null;
+          let finalStartDate = data.task.startDate || null;
+          let finalEndDate = data.task.endDate || null;
+          let finalStartTime = data.task.startTime || null;
+          let finalEndTime = data.task.endTime || null;
+          let finalDeadline = data.task.deadline || null;
+          const isInbox = data.task.isInbox === true;
+          
+          // UNIVERSAL INBOX RULE: If isInbox is true, startTime and endTime MUST be null
+          // This is already enforced by the backend, but we double-check here
+          if (isInbox) {
+            finalStartTime = null;
+            finalEndTime = null;
+            // For inbox tasks, we keep date/deadline as provided but times must be null
+          }
+          
+          // Handle date ranges: if we have startDate/endDate but no single date
+          if (finalStartDate && finalEndDate && !finalDate) {
+            // For date range tasks, use startDate as the primary date
+            finalDate = finalStartDate;
+          }
+          
+          // If no date at all, default to today (but only for non-inbox tasks with times)
+          if (!finalDate && !finalStartDate && !isInbox) {
+            finalDate = new Date().toISOString().split('T')[0];
+          }
+          
+          // TIME HANDLING RULES (only apply if not inbox)
+          if (!isInbox) {
+            // 1. TODAY RULE: If date is today and no specific time provided but we have a time
+            if (finalDate === new Date().toISOString().split('T')[0] && !finalStartTime && !finalDeadline) {
+              // Set startTime to current hour, endTime to startTime + 1 hour
+              finalStartTime = formatTime(currentHour, currentMinute);
+              const endMinutes = currentHour * 60 + currentMinute + 60;
+              const endHour = Math.floor(endMinutes / 60) % 24;
+              const endMinute = endMinutes % 60;
+              finalEndTime = formatTime(endHour, endMinute);
+            }
+            // 2. DEADLINE RULE: If deadline exists but no start time
+            else if (finalDeadline && !finalStartTime) {
+              // Calculate startTime as 1 hour before deadline
+              finalStartTime = calculateStartTimeFromDeadline(finalDeadline);
+              if (finalStartTime) {
+                // Calculate endTime as startTime + 1 hour (or use deadline time)
+                const startMinutes = parseTimeToMinutes(finalStartTime);
+                if (startMinutes !== null) {
+                  const endMinutes = startMinutes + 60;
+                  const endHour = Math.floor(endMinutes / 60) % 24;
+                  const endMinute = endMinutes % 60;
+                  finalEndTime = formatTime(endHour, endMinute);
+                }
+              }
+            }
+            // 3. Default time handling: if startTime exists but no endTime
+            else if (finalStartTime && !finalEndTime) {
+              const startMinutes = parseTimeToMinutes(finalStartTime);
+              if (startMinutes !== null) {
+                const endMinutes = startMinutes + 60;
+                const endHour = Math.floor(endMinutes / 60) % 24;
+                const endMinute = endMinutes % 60;
+                finalEndTime = formatTime(endHour, endMinute);
+              }
+            }
+            // 4. If no time information at all (shouldn't happen for non-inbox, but as fallback)
+            else if (!finalStartTime && !finalEndTime && !finalDeadline) {
+              // Default to 9:00 - 10:00
+              finalStartTime = '09:00';
+              finalEndTime = '10:00';
+            }
+          }
+          
+          // Final validation: if startTime is null, ensure isInbox is true
+          // This is a safety check to prevent crashes in timeline view
+          if (!finalStartTime && !isInbox) {
+            console.warn('Task has no startTime but isInbox is false. Forcing to inbox.');
+            // Force to inbox to prevent timeline crashes
+            isInbox = true;
+            finalStartTime = null;
+            finalEndTime = null;
+          }
+
+          const newParsedTask = {
             id: `voice-${Date.now()}`,
             type: 'task',
             title: data.task.title || 'Без назви',
             description: data.task.description || '',
-            date: data.task.date || new Date().toISOString().split('T')[0],
-            startTime: data.task.startTime || data.task.time || '09:00',
-            endTime: data.task.endTime || (() => {
-              const start = data.task.startTime || data.task.time || '09:00';
-              const [h, m] = start.split(':').map(Number);
-              const endMinutes = (h * 60 + m + 60) % 1440;
-              const endH = Math.floor(endMinutes / 60);
-              const endM = endMinutes % 60;
-              return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-            })(),
+            date: finalDate,
+            startDate: finalStartDate,  // New field for date ranges
+            endDate: finalEndDate,      // New field for date ranges
+            startTime: finalStartTime,
+            endTime: finalEndTime,
             status: 'pending',
             themeColor: '#4A90E2',
             priority: 'medium',
             difficulty: 'medium',
             estimatedDuration: data.task.estimatedDuration || 60,
             dueDate: null,
-            deadline: null,
-            tags: [],
+            deadline: finalDeadline,
+            isInbox: isInbox,  // Include isInbox flag
+            tags: data.task.tags || [],
             reminder: {
               mode: 'before_start',
               minutesBefore: 15,
@@ -374,7 +492,7 @@ export default function MicrophoneScreen() {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
-          setParsedTask(parsedTask);
+          setParsedTask(newParsedTask);
         }
       }
     } catch (error) {

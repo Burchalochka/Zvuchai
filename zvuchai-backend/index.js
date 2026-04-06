@@ -23,17 +23,37 @@ CRITICAL RULES:
 4. DESCRIPTION LIMIT: Only extra details. Do NOT repeat the title. If none, return "".
 5. CURRENT SYSTEM TIME is ${currentTime}. Use this to calculate dates.
 6. SCOPE: We only support 'task' creation.
-7. DEADLINE: If the user explicitly mentions a deadline (e.g., "by 5 PM"), extract it into the "deadline" field as "YYYY-MM-DD HH:MM". If no deadline is mentioned, return null.
+
+BUSINESS RULES FOR TASK SCHEDULING:
+A. UNIVERSAL INBOX RULE: ANY task that DOES NOT have a specific time of day (hours/minutes) MUST be flagged as "isInbox": true. This applies even if the task has a specific date ("tomorrow") or a deadline ("by Wednesday"). If there is no clock time, it goes to the Inbox. When isInbox is true, set startTime and endTime to null.
+B. DATE RANGES (EXTENDED DEADLINES): If the user says "this week", "this month", or "by Wednesday", recognize it as a date range. Calculate appropriate startDate and endDate:
+   - "this week": startDate = Monday of current week, endDate = Sunday of current week
+   - "this month": startDate = 1st day of current month, endDate = last day of current month
+   - "by Wednesday": deadline = next Wednesday at end of day (23:59), startDate = today
+   For date ranges, if there's no specific time, isInbox MUST be true and startTime/endTime must be null.
+C. TODAY RULE: If the user says "today" (e.g., "wash car today") but mentions no specific time, provide today's date (based on CURRENT SYSTEM TIME). Since there's no clock time, isInbox MUST be true. Set startTime and endTime to null.
+D. DEADLINE RULE: If the user provides a deadline with time (e.g., "finish lab by 8 PM"), extract the deadline into the "deadline" field as "YYYY-MM-DD HH:MM". If the deadline has a specific time, isInbox is false. If deadline is just a date without time, isInbox MUST be true.
+
+TIME HANDLING:
+- If user provides specific time (e.g., "at 3 PM"), extract it into startTime and calculate endTime as startTime + 1 hour. isInbox is false.
+- If user provides both start and end times, use them as provided. isInbox is false.
+- If user says "all day", "цілий день", "весь день", or similar phrases indicating the task takes the whole day, set startTime to "07:00", endTime to "21:00" (14-hour block), and isInbox to false.
+- If no time information is provided, set startTime and endTime to null and isInbox MUST be true.
+
+NO DEADLINE RULE: If there is no date and no time ("buy milk"), "isInbox": true, and all dates/times are null.
 
 JSON SCHEMA:
 {
   "title": "Short title",
   "description": "Extra info",
-  "date": "YYYY-MM-DD",
-  "startTime": "HH:MM",
-  "endTime": "HH:MM",
-  "deadline": "2026-03-04 17:00", 
+  "date": "YYYY-MM-DD" or null,  // For single-day tasks
+  "startDate": "YYYY-MM-DD" or null,  // For date ranges (start of range)
+  "endDate": "YYYY-MM-DD" or null,    // For date ranges (end of range)
+  "startTime": "HH:MM" or null,
+  "endTime": "HH:MM" or null,
+  "deadline": "YYYY-MM-DD HH:MM" or null,
   "estimatedDuration": 60,
+  "isInbox": false,  // MUST be true if startTime is null
   "tags": ["робота"],
   "confidenceScore": 90
 }`;
@@ -45,7 +65,7 @@ JSON SCHEMA:
 };
 
 // ==========================================
-// ЕНДПОІНТ 1: ГОЛОС У ТЕКСТ (Через Groq)
+// ЕНДПОІНТ 1: ПЕРЕВІРКА МЕРЕЖІ ТА ТРАНСКРИБЦІЯ
 // ==========================================
 app.get('/health', (req, res) => {
   res.status(200).send('OK - Server is alive!');
@@ -77,102 +97,25 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 });
 
 // ==========================================
-// ВАРІАНТ А: ПРЯМИЙ ЗАПИТ ДО GEMINI (Через Fetch, Стабільний v1)
-// ==========================================
-app.post('/api/parse-gemini', async (req, res) => {
-    const { text, currentTime, deadZoneConflict } = req.body;
-    const fullTextToAnalyze = getSystemPrompt(currentTime, deadZoneConflict) + "\n\nUSER TEXT TO PARSE:\n" + text;
-
-    try {
-        // Використовуємо стабільну версію API (v1) замість v1beta
-       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                "contents": [{
-                    "parts": [{ "text": fullTextToAnalyze }]
-                }]
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Gemini відхилив запит (Статус: ${response.status}). Деталі: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        let rawContent = data.candidates[0].content.parts[0].text;
-        const cleanJsonString = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-        
-        res.status(200).json(JSON.parse(cleanJsonString));
-    } catch (error) {
-        console.error("Direct Gemini Error:", error);
-        res.status(500).json({ error: "Не вдалося розпарсити задачу через Gemini", details: error.message });
-    }
-});
-
-// ==========================================
-// ВАРІАНТ Б: ЗАПИТ ЧЕРЕЗ OPENROUTER (Через Fetch)
-// ==========================================
-app.post('/api/parse-openrouter', async (req, res) => {
-    const { text, currentTime, deadZoneConflict } = req.body;
-    const fullTextToAnalyze = getSystemPrompt(currentTime, deadZoneConflict) + "\n\nUSER TEXT TO PARSE:\n" + text;
-
-    try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                'HTTP-Referer': 'https://zvuchai.com', 
-                'X-Title': 'Zvuchai App', 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                // Прибрали масив. Використовуємо один рядок, який автоматично знайде вільну модель
-                "model": "openrouter/free",
-                "messages": [
-                    { "role": "user", "content": fullTextToAnalyze }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`OpenRouter відхилив запит (Статус: ${response.status}). Деталі: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        let rawContent = data.choices[0].message.content;
-        const cleanJsonString = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-        
-        res.status(200).json(JSON.parse(cleanJsonString));
-    } catch (error) {
-        console.error("OpenRouter Error:", error);
-        res.status(500).json({ error: "Не вдалося розпарсити задачу через OpenRouter", details: error.message });
-    }
-});
-// ==========================================
 // СУПЕР-ЕНДПОІНТ: АУДІО -> ГОТОВИЙ JSON (Повний цикл)
 // Ендпоінт: /api/process-audio
 // ==========================================
 app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
-    // 1. Перевіряємо, чи є файл
     if (!req.file) {
         return res.status(400).json({ error: "Аудіофайл не знайдено" });
     }
 
-    // Multer автоматично дістає текстові поля з form-data і кладе їх у req.body
     const { currentTime, deadZoneConflict } = req.body;
-    
-    // Оскільки з form-data булеві значення часто приходять як текст "true"/"false"
     const isDeadZone = deadZoneConflict === 'true'; 
+
+    // 🎛 ГОЛОВНИЙ ПЕРЕМИКАЧ МОДЕЛЕЙ:
+    // true = платний швидкий DeepSeek
+    // false = безкоштовний OpenRouter
+    const USE_DEEPSEEK = true; 
 
     try {
         console.log("Етап 1: Відправляємо аудіо на Groq...");
         
-        // --- ЕТАП 1: Розпізнавання голосу (Groq) ---
         const groqFormData = new FormData();
         const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
         groqFormData.append('file', blob, 'audio.m4a');
@@ -190,39 +133,67 @@ app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
         const recognizedText = groqData.text;
         
         console.log(`Розпізнано текст: "${recognizedText}"`);
-        console.log("Етап 2: Відправляємо текст на OpenRouter...");
+        console.log(`Етап 2: Відправляємо текст на ${USE_DEEPSEEK ? 'DeepSeek (Платний)' : 'OpenRouter (Безкоштовний)'}...`);
 
-        // --- ЕТАП 2: Генерація задачі (OpenRouter) ---
         const systemPrompt = getSystemPrompt(currentTime, isDeadZone);
-        const fullTextToAnalyze = systemPrompt + "\n\nUSER TEXT TO PARSE:\n" + recognizedText;
+        let finalTask;
 
-        const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                'HTTP-Referer': 'https://zvuchai.com', 
-                'X-Title': 'Zvuchai App', 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "model": "openrouter/free",
-                "messages": [
-                    { "role": "user", "content": fullTextToAnalyze }
-                ]
-            })
-        });
+        if (USE_DEEPSEEK) {
+            // ПЛАТНИЙ DEEPSEEK
+            const aiResponse = await fetch('https://api.deepseek.com/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "model": "deepseek-chat",
+                    "messages": [
+                        { "role": "system", "content": systemPrompt },
+                        { "role": "user", "content": recognizedText }
+                    ],
+                    "response_format": { "type": "json_object" }
+                })
+            });
 
-        if (!aiResponse.ok) throw new Error("Помилка генерації задачі від OpenRouter");
-        
-        const aiData = await aiResponse.json();
-        let rawContent = aiData.choices[0].message.content;
-        const cleanJsonString = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const finalTask = JSON.parse(cleanJsonString);
+            if (!aiResponse.ok) throw new Error(`Помилка DeepSeek: ${await aiResponse.text()}`);
+            const aiData = await aiResponse.json();
+            
+            let rawContent = aiData.choices[0].message.content;
+            const cleanJsonString = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+            finalTask = JSON.parse(cleanJsonString);
+
+        } else {
+            //  БЕЗКОШТОВНИЙ OPENROUTER
+            const fullTextToAnalyze = systemPrompt + "\n\nUSER TEXT TO PARSE:\n" + recognizedText;
+            
+            const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': 'https://zvuchai.com', 
+                    'X-Title': 'Zvuchai App', 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "model": "openrouter/free",
+                    "messages": [
+                        { "role": "user", "content": fullTextToAnalyze }
+                    ]
+                })
+            });
+
+            if (!aiResponse.ok) throw new Error(`Помилка OpenRouter: ${await aiResponse.text()}`);
+            const aiData = await aiResponse.json();
+            
+            let rawContent = aiData.choices[0].message.content;
+            const cleanJsonString = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+            finalTask = JSON.parse(cleanJsonString);
+        }
 
         console.log("Успіх! Задача згенерована.");
 
         // --- ЕТАП 3: Віддаємо результат фронтенду ---
-        // Віддаємо і розпізнаний текст (щоб фронтенд міг показати його на екрані), і саму задачу
         res.status(200).json({
             originalText: recognizedText,
             task: finalTask
@@ -233,12 +204,12 @@ app.post('/api/process-audio', upload.single('audio'), async (req, res) => {
         res.status(500).json({ error: "Не вдалося обробити голосове повідомлення", details: error.message });
     }
 });
+
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Сервер Zvuchai успішно запущено на порту ${PORT}`);
     console.log(`Доступні ендпоінти:`);
-    console.log(`- POST /api/transcribe`);
-    console.log(`- POST /api/parse-gemini (ОСНОВНИЙ)`);
-    console.log(`- POST /api/parse-openrouter (РЕЗЕРВНИЙ)`);
+    console.log(`- GET  /health`);
+    console.log(`- POST /api/process-audio (ПОВНИЙ ЦИКЛ ГОЛОС -> ЗАДАЧА)`);
 });

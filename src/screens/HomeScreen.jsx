@@ -50,7 +50,7 @@ const HomeScreen = () => {
   }, [selectedDate]);
 
   const selectedKey = toDateKey(selectedDate);
-  const tasksForDay = (tasks || []).filter((t) => t && t.date === selectedKey);
+  const tasksForDay = (tasks || []).filter((t) => t && t.date === selectedKey && t.isInbox !== true);
   const habitsForDay = (habits || []).filter((h) => h && h.date === selectedKey);
 
   const sortedTasks = [...tasksForDay].sort((a, b) => {

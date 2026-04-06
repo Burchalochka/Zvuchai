@@ -9,16 +9,32 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
   const { language } = useLanguage();
   
   const parseTime = (timeStr) => {
+    if (!timeStr) {
+      return { hours: 0, minutes: 0 };
+    }
     const [hours, minutes] = timeStr.split(':');
-    return { hours: parseInt(hours), minutes: parseInt(minutes) };
+    return {
+      hours: parseInt(hours) || 0,
+      minutes: parseInt(minutes) || 0
+    };
   };
 
   const calculateDuration = (start, end) => {
+    // Handle null/undefined times - return empty string for inbox tasks
+    if (!start || !end) {
+      return '';
+    }
+    
     const startTime = parseTime(start);
     const endTime = parseTime(end);
     const startMinutes = startTime.hours * 60 + startTime.minutes;
     const endMinutes = endTime.hours * 60 + endTime.minutes;
-    const durationMinutes = endMinutes - startMinutes;
+    
+    // Handle cases where end time might be before start time (crossing midnight)
+    let durationMinutes = endMinutes - startMinutes;
+    if (durationMinutes < 0) {
+      durationMinutes += 24 * 60; // Add a day's worth of minutes
+    }
     
     const hours = Math.floor(durationMinutes / 60);
     const minutes = durationMinutes % 60;
@@ -33,6 +49,9 @@ const TaskTimelineItem = ({ task, selected, onToggleComplete }) => {
   };
 
   const formatTime = (timeStr) => {
+    if (!timeStr) {
+      return '—'; // Use em dash for empty time
+    }
     return timeStr;
   };
 
