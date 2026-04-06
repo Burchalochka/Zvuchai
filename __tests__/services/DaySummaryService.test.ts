@@ -14,7 +14,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     startTime: '09:00',
     endTime: '10:00',
     status: 'pending',
-    themeColor: '#E8E0D5',
+    themeColor: '#FCFFC6',
     priority: 'medium',
     difficulty: 'medium',
     estimatedDuration: null,
@@ -125,6 +125,18 @@ describe('getDayStats', () => {
     const { completedCount } = getDayStats(tasks);
 
     expect(completedCount).toBe(0);
+  });
+
+  it('counts autoDoneOverride completed even when status is pending', () => {
+    const tasks = [makeTask({ status: 'pending', autoDoneOverride: 'completed' })];
+
+    expect(getDayStats(tasks).completedCount).toBe(1);
+  });
+
+  it('does not count autoDoneOverride pending even when status is completed', () => {
+    const tasks = [completed({ autoDoneOverride: 'pending' })];
+
+    expect(getDayStats(tasks).completedCount).toBe(0);
   });
 
   /**

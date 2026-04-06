@@ -1,5 +1,13 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import {
+  View,
+  ScrollView,
+  Text,
+  StyleSheet,
+  Pressable,
+  Platform,
+} from 'react-native';
+import { FONTS } from '../../styles/theme';
 
 const WheelPicker = ({
   data,
@@ -11,97 +19,155 @@ const WheelPicker = ({
   selectedTextStyle = {},
   width = 120,
   scrollEnabled = true,
-  maxFlingItems = 1,
+  maxFlingItems = 1000,
   decel = Platform.OS === 'ios' ? 0.99 : 0.985,
+  delayPressIn = 120,
 }) => {
+  const len = Array.isArray(data) ? data.length : 0;
+  const baseIdx = Number.isFinite(selectedIndex) ? selectedIndex : 0;
+  const safeIndex = len > 0 ? Math.min(Math.max(0, baseIdx), len - 1) : 0;
+
   const scrollRef = useRef(null);
-  const [currentIndex, setCurrentIndex] = useState(selectedIndex);
-  const scrollTimeoutRef = useRef(null);
-  const lastIndexRef = useRef(selectedIndex);
-  const isScrollingRef = useRef(false);
+  const [currentIndex, setCurrentIndex] = useState(safeIndex);
+  const lastIndexRef = useRef(safeIndex);
+  const committedIndexRef = useRef(safeIndex);
+  const isDraggingRef = useRef(false);
+  const prevSelectedFromPropsRef = useRef(undefined);
+  const hasSyncedFromPropsRef = useRef(false);
   const spacerHeight = (itemHeight * (visibleItems - 1)) / 2;
   const decelerationRateValue = Platform.OS === 'android' ? 'normal' : decel;
 
-  const clampIndexByFling = useCallback((targetIndex) => {
-    const base = lastIndexRef.current;
-    const diff = targetIndex - base;
-    if (Math.abs(diff) > maxFlingItems) {
-      return base + Math.sign(diff) * maxFlingItems;
-    }
-    return targetIndex;
-  }, [maxFlingItems]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ y: selectedIndex * itemHeight, animated: false });
-      setCurrentIndex(selectedIndex);
-      lastIndexRef.current = selectedIndex;
-    }
-  }, [selectedIndex, itemHeight]);
-
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+  const clampIndexByFling = useCallback(
+    (targetIndex) => {
+      if (maxFlingItems >= len || maxFlingItems >= 500) return targetIndex;
+      const base = lastIndexRef.current;
+      const diff = targetIndex - base;
+      if (Math.abs(diff) > maxFlingItems) {
+        return base + Math.sign(diff) * maxFlingItems;
       }
-    };
-  }, []);
+      return targetIndex;
+    },
+    [maxFlingItems, len],
+  );
 
-  const snapToIndex = (index, byTap = false) => {
-    if (index < 0) index = 0;
-    if (index >= data.length) index = data.length - 1;
-    scrollRef.current?.scrollTo({ y: index * itemHeight, animated: true });
-    if (index !== currentIndex) {
-      setCurrentIndex(index);
-      onChange && onChange(index, byTap);
+  const scrollToIndex = useCallback(
+    (idx, animated) => {
+      if (!scrollRef.current || !len) return;
+      const y = Math.min(Math.max(0, idx), len - 1) * itemHeight;
+      scrollRef.current.scrollTo({ y, animated });
+    },
+    [len, itemHeight],
+  );
+
+  useEffect(() => {
+    if (!len) return;
+    if (isDraggingRef.current) return;
+
+    const idx = Math.min(Math.max(0, Number.isFinite(selectedIndex) ? selectedIndex : 0), len - 1);
+
+    const echoBack =
+      hasSyncedFromPropsRef.current &&
+      idx === committedIndexRef.current &&
+      idx === lastIndexRef.current;
+    if (echoBack) {
+      prevSelectedFromPropsRef.current = idx;
+      return;
     }
-  };
+
+    if (prevSelectedFromPropsRef.current === idx && hasSyncedFromPropsRef.current) {
+      return;
+    }
+
+    prevSelectedFromPropsRef.current = idx;
+    hasSyncedFromPropsRef.current = true;
+
+    const id = requestAnimationFrame(() => {
+      if (isDraggingRef.current) return;
+      scrollToIndex(idx, false);
+      setCurrentIndex(idx);
+      lastIndexRef.current = idx;
+      committedIndexRef.current = idx;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [selectedIndex, itemHeight, len, scrollToIndex]);
+
+  const commitIndex = useCallback(
+    (index, fromTap = false, syncScroll = false) => {
+      if (index < 0) index = 0;
+      if (index >= len) index = len - 1;
+
+      if (syncScroll) {
+        scrollToIndex(index, true);
+      }
+
+      setCurrentIndex(index);
+      lastIndexRef.current = index;
+
+      if (index !== committedIndexRef.current) {
+        committedIndexRef.current = index;
+        onChange?.(index, fromTap);
+      }
+    },
+    [len, onChange, scrollToIndex],
+  );
 
   const handleMomentumEnd = (e) => {
-    isScrollingRef.current = false;
+    isDraggingRef.current = false;
     const offsetY = e.nativeEvent.contentOffset.y;
     let index = Math.round(offsetY / itemHeight);
+    index = Math.min(Math.max(0, index), len - 1);
     index = clampIndexByFling(index);
-    snapToIndex(index);
+    commitIndex(index, false, false);
   };
 
   const handleScrollEndDrag = (e) => {
-    isScrollingRef.current = false;
+    const v = e.nativeEvent.velocity;
+    const vy =
+      v != null && typeof v === 'object' && 'y' in v
+        ? v.y
+        : typeof v === 'number'
+          ? v
+          : 0;
+
+    if (Platform.OS === 'ios' && Math.abs(vy) > 0.15) {
+      return;
+    }
+
+    if (Platform.OS === 'android' && Math.abs(vy) > 0.2) {
+      isDraggingRef.current = false;
+      return;
+    }
+
+    isDraggingRef.current = false;
     const offsetY = e.nativeEvent.contentOffset.y;
     let index = Math.round(offsetY / itemHeight);
+    index = Math.min(Math.max(0, index), len - 1);
     index = clampIndexByFling(index);
-    snapToIndex(index);
+
+    const needsSnap =
+      Platform.OS === 'android' && Math.abs(offsetY - index * itemHeight) > 1;
+    commitIndex(index, false, needsSnap);
   };
 
   const handleScrollBeginDrag = useCallback(() => {
-    isScrollingRef.current = true;
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-      scrollTimeoutRef.current = null;
-    }
+    isDraggingRef.current = true;
   }, []);
 
-  const handleScroll = useCallback((e) => {
-    if (!isScrollingRef.current) return;
-    
-    const offsetY = e.nativeEvent.contentOffset.y;
-    const idx = Math.round(offsetY / itemHeight);
-    
-    if (idx >= 0 && idx < data.length && idx !== lastIndexRef.current) {
-      lastIndexRef.current = idx;
-      setCurrentIndex(idx);
-      
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+  const handleScroll = useCallback(
+    (e) => {
+      if (!len) return;
+      const offsetY = e.nativeEvent.contentOffset.y;
+      const idx = Math.round(offsetY / itemHeight);
+      if (idx >= 0 && idx < len) {
+        setCurrentIndex((prev) => (prev !== idx ? idx : prev));
       }
-      scrollTimeoutRef.current = setTimeout(() => {
-        if (onChange && isScrollingRef.current) {
-          onChange(idx, false);
-        }
-        scrollTimeoutRef.current = null;
-      }, 150);
-    }
-  }, [data.length, itemHeight, onChange]);
+    },
+    [len, itemHeight],
+  );
+
+  if (!len) {
+    return <View style={{ width, height: itemHeight * visibleItems }} />;
+  }
 
   return (
     <View
@@ -119,34 +185,43 @@ const WheelPicker = ({
         onScrollBeginDrag={handleScrollBeginDrag}
         onMomentumScrollEnd={handleMomentumEnd}
         onScrollEndDrag={handleScrollEndDrag}
-        contentContainerStyle={{ paddingVertical: spacerHeight }}
-        scrollEventThrottle={100}
-        nestedScrollEnabled={true}
+        contentContainerStyle={{ paddingTop: spacerHeight, paddingBottom: spacerHeight }}
+        scrollEventThrottle={16}
+        nestedScrollEnabled
         bounces={false}
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={10}
-        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={false}
         pagingEnabled={false}
-        directionalLockEnabled={true}
+        directionalLockEnabled
         overScrollMode="never"
-        scrollToOverflowEnabled={false}
-        maintainVisibleContentPosition={null}
+        keyboardShouldPersistTaps="handled"
       >
         {data.map((item, idx) => {
           const isSelected = idx === currentIndex;
           return (
-            <TouchableOpacity
-              activeOpacity={0.7}
+            <Pressable
               key={idx}
-              onPress={() => snapToIndex(idx, true)}
-              style={{ height: itemHeight, justifyContent: 'center', alignItems: 'center' }}
+              delayPressIn={delayPressIn}
+              onPress={() => commitIndex(idx, true, true)}
+              style={({ pressed }) => [
+                {
+                  height: itemHeight,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
             >
               <Text
-                style={[styles.itemText, textStyle, isSelected && styles.selectedText, isSelected && selectedTextStyle]}
+                style={[
+                  styles.itemText,
+                  textStyle,
+                  isSelected && styles.selectedText,
+                  isSelected && selectedTextStyle,
+                ]}
               >
                 {item}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -161,7 +236,8 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   selectedText: {
-    fontWeight: '600',
+    fontFamily: FONTS.bold,
+    fontWeight: '700',
     color: '#514134',
   },
 });

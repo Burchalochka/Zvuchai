@@ -7,7 +7,9 @@ const DAY_LABELS_UK = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'НД'];
 
 const parseStartMin = (t) => {
   if (!t || typeof t !== 'string' || !t.includes(':')) return 0;
-  const [h, m] = t.split(':').map((x) => Number(x));
+  const [hRaw, mRaw] = t.split(':');
+  const h = Number(String(hRaw).trim());
+  const m = Number(String(mRaw).trim());
   return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
 };
 

@@ -6,6 +6,9 @@
  *   1. Open this file.
  *   2. Change the value of the flag you need.
  *   3. Reload the app (press 'r' in Metro or restart).
+ *
+ * Day timeline (шкала, пунктир, «зараз») — лише режим «День» у меню календаря,
+ * не «Тиждень / Місяць / 3 дні». Після змін у таймлайні перезапусти Metro з reset cache.
  */
 export const DEV_CONFIG = {
   // ── Seed data ───────────────────────────────────────────────────────────────
@@ -34,4 +37,8 @@ export const DEV_CONFIG = {
 
   /** Language used when SKIP_ONBOARDING is true. */
   DEFAULT_LANGUAGE: 'uk' as 'uk' | 'en',
+
+  // ── Day timeline UI (experimental, вимкнено за рішенням продукту) ───────────
+  // /** Час на високих картках справа над галочкою замість рядка зліва. */
+  // TALL_CARD_TIME_BY_CHECK: true,
 };
