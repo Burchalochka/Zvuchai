@@ -29,22 +29,56 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
   const [fabMode, setFabMode] = useState('plus');
 
   useEffect(() => {
-    if (!currentRouteName) return;
-    if (currentRouteName === 'Microphone') {
-      setFabMode('voice');
-    } else if (fabMode !== 'plus') {
-      setFabMode('plus');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentRouteName]);
+    const updateRoute = () => {
+      const route = navigationRef.getCurrentRoute();
+      setCurrentRouteName(route?.name ?? '');
+    };
+
+    updateRoute();
+
+    const unsubscribe = navigationRef.addListener('state', updateRoute);
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+    setShowLanguageSelection(true);
+  };
+
+  const handleLanguageSelected = () => {
+    setShowLanguageSelection(false);
+  };
+
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
+
+  if (showLanguageSelection) {
+    return (
+      <LanguageSelectionScreen onLanguageSelected={handleLanguageSelected} />
+    );
+  }
+const hiddenRoutes = [
+    'Microphone',
+    'Step1Sleep',
+    'Step2DeadZones',
+    'Step3ProductiveTime',
+    'Step4WorkStyle',
+    'Step5Fatigue',
+    'Step6Summary'
+  ];
 
   return (
     <>
       <View style={styles.container}>
         <AppNavigator />
 
-        {!!currentRouteName &&
-          currentRouteName !== 'Splash' &&
+        {/* ПЕРЕВІРКА: Показуємо кнопку, ТІЛЬКИ ЯКЩО поточного екрана немає в списку hiddenRoutes */}
+        {!hiddenRoutes.includes(currentRouteName) && (
+          currentRouteName !== 'Microphone' && (
           currentRouteName !== 'Microphone' &&
           currentRouteName !== 'EditTask' && (
           <View
@@ -59,7 +93,6 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
                   fabMode === 'plus' ? styles.fabSegmentActive : null,
                 ]}
                 onPress={() => {
-                  setFabMode('plus');
                   openAddModal();
                 }}
                 activeOpacity={0.8}

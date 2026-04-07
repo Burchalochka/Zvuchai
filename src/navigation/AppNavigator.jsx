@@ -10,8 +10,12 @@ import HomeScreen from '../screens/HomeScreen';
 import GoalsScreen from '../screens/GoalsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import InboxScreen from '../screens/InboxScreen';
+<<<<<<< onboarding
+import OnboardingNavigator from './OnboardingNavigator';
+=======
 import SplashScreen from '../screens/SplashScreen';
 import WeekScheduleScreen from '../screens/WeekScheduleScreen';
+>>>>>>> develop
 import { useLanguage } from '../context/LanguageContext';
 import { getTranslation } from '../utils/translations';
 import { COLORS, SPACING, FONTS } from '../styles/theme';
@@ -231,8 +235,16 @@ const styles = StyleSheet.create({
 
 const RootNavigator = () => {
   return (
+<<<<<<< onboarding
+    // Додаємо initialRouteName="OnboardingFlow", щоб додаток стартував з нього
+    <Stack.Navigator initialRouteName="OnboardingFlow" screenOptions={{ headerShown: false }}>
+      
+      {/* Наш новий стек онбордингу */}
+      <Stack.Screen name="OnboardingFlow" component={OnboardingNavigator} />
+=======
     <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Splash" component={SplashScreen} />
+>>>>>>> develop
       <Stack.Screen name="Tabs" component={AppNavigator} />
       <Stack.Screen name="Microphone" component={MicrophoneScreen} />
       <Stack.Screen name="EditTask" component={EditTaskScreen} />
