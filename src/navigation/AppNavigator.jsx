@@ -1,4 +1,5 @@
 import MicrophoneScreen from '../screens/MicrophoneScreen';
+import EditTaskScreen from '../screens/EditTaskScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, Platform } from 'react-native';
@@ -232,6 +233,7 @@ const RootNavigator = () => {
       <Stack.Screen name="Splash" component={SplashScreen} />
       <Stack.Screen name="Tabs" component={AppNavigator} />
       <Stack.Screen name="Microphone" component={MicrophoneScreen} />
+      <Stack.Screen name="EditTask" component={EditTaskScreen} />
     </Stack.Navigator>
   );
 };
