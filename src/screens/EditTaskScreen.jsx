@@ -334,7 +334,7 @@ const EditTaskScreen = () => {
           <View style={styles.dateTimeSection}>
             {/* Date Picker */}
             <View style={styles.inputSection}>
-              <Text style={styles.label}>Дата *</Text>
+              <Text style={styles.label}>Дата</Text>
               <TouchableOpacity
                 style={styles.dateDisplay}
                 onPress={() => setShowDatePicker(true)}
