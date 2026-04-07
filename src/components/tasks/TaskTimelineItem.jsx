@@ -55,13 +55,23 @@ const TaskTimelineItem = ({
   const { language } = useLanguage();
 
   const parseTime = (timeStr) => {
-    if (!timeStr) {
+    // Handle null, undefined, empty string, or non-string values
+    if (!timeStr || typeof timeStr !== 'string') {
       return { hours: 0, minutes: 0 };
     }
-    const [hours, minutes] = timeStr.split(':');
+    
+    // Handle malformed time strings
+    const parts = timeStr.split(':');
+    if (parts.length < 2) {
+      return { hours: 0, minutes: 0 };
+    }
+    
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    
     return {
-      hours: parseInt(hours) || 0,
-      minutes: parseInt(minutes) || 0
+      hours: isNaN(hours) ? 0 : hours,
+      minutes: isNaN(minutes) ? 0 : minutes
     };
   };
 

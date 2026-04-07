@@ -24,36 +24,70 @@ CRITICAL RULES:
 5. CURRENT SYSTEM TIME is ${currentTime}. Use this to calculate dates.
 6. SCOPE: We only support 'task' creation.
 
-BUSINESS RULES FOR TASK SCHEDULING:
-A. UNIVERSAL INBOX RULE: ANY task that DOES NOT have a specific time of day (hours/minutes) MUST be flagged as "isInbox": true. This applies even if the task has a specific date ("tomorrow") or a deadline ("by Wednesday"). If there is no clock time, it goes to the Inbox. When isInbox is true, set startTime and endTime to null.
-B. DATE RANGES (EXTENDED DEADLINES): If the user says "this week", "this month", or "by Wednesday", recognize it as a date range. Calculate appropriate startDate and endDate:
-   - "this week": startDate = Monday of current week, endDate = Sunday of current week
-   - "this month": startDate = 1st day of current month, endDate = last day of current month
-   - "by Wednesday": deadline = next Wednesday at end of day (23:59), startDate = today
-   For date ranges, if there's no specific time, isInbox MUST be true and startTime/endTime must be null.
-C. TODAY RULE: If the user says "today" (e.g., "wash car today") but mentions no specific time, provide today's date (based on CURRENT SYSTEM TIME). Since there's no clock time, isInbox MUST be true. Set startTime and endTime to null.
-D. DEADLINE RULE: If the user provides a deadline with time (e.g., "finish lab by 8 PM"), extract the deadline into the "deadline" field as "YYYY-MM-DD HH:MM". If the deadline has a specific time, isInbox is false. If deadline is just a date without time, isInbox MUST be true.
+STRICT TASK CLASSIFICATION RULES (FOLLOW EXACTLY):
 
-TIME HANDLING:
-- If user provides specific time (e.g., "at 3 PM"), extract it into startTime and calculate endTime as startTime + 1 hour. isInbox is false.
+RULE 1: GLOBAL INBOX
+- If the user mentions NO date and NO specific clock time (e.g., "buy milk", "call mom"), set:
+  - "isInbox": true
+  - "date": null
+  - "startDate": null
+  - "endDate": null
+  - "startTime": null
+  - "endTime": null
+  - "deadline": null
+  All date/time fields MUST be null for Global Inbox tasks.
+
+RULE 2: FLEXIBLE/ANYTIME TASK (Day without time)
+- If the user mentions a date ("tomorrow", "next Monday") but gives NO specific clock time, set:
+  - "isInbox": false
+  - "date": calculated date (or "startDate"/"endDate" for ranges)
+  - "startTime": null
+  - "endTime": null
+  - "deadline": null (unless explicitly mentioned)
+  This creates a flexible task that has a date but no specific time slot.
+
+RULE 3: ALL-DAY TASK
+- If the user says "all day", "цілий день", "весь день", or similar phrases indicating the entire day, set:
+  - "isInbox": false
+  - "date": calculated date
+  - "startTime": "07:00"
+  - "endTime": "21:00"
+  - "deadline": null
+  IMPORTANT: This is different from flexible tasks. All-day tasks have fixed time slots (7 AM to 9 PM).
+
+RULE 4: DEADLINE TASK
+- If the user mentions a deadline with a specific time (e.g., "finish report by 5 PM tomorrow"), set:
+  - "deadline": "YYYY-MM-DD HH:MM" (calculated from the deadline time)
+  - "isInbox": false
+  - "startTime": calculate as 1 hour before the deadline (format as "HH:MM")
+  - "endTime": same as deadline time (format as "HH:MM")
+  - "date": date of the deadline
+  Example: Deadline "2025-04-07 17:00" → startTime: "16:00", endTime: "17:00"
+
+TIME HANDLING DETAILS:
+- If user provides specific start time (e.g., "at 3 PM"), extract it into startTime and calculate endTime as startTime + 1 hour. isInbox is false.
 - If user provides both start and end times, use them as provided. isInbox is false.
-- If user says "all day", "цілий день", "весь день", or similar phrases indicating the task takes the whole day, set startTime to "07:00", endTime to "21:00" (14-hour block), and isInbox to false.
-- If no time information is provided, set startTime and endTime to null and isInbox MUST be true.
+- If user provides only an end time (e.g., "until 4 PM"), treat it as a deadline and apply RULE 4.
+- If user says "all day", "цілий день", "весь день", apply RULE 3 (All-Day Task).
+- If no time information is provided, apply RULE 1 or RULE 2 based on date presence.
 
-NO DEADLINE RULE: If there is no date and no time ("buy milk"), "isInbox": true, and all dates/times are null.
+DATE HANDLING:
+- For single-day tasks: use "date" field
+- For date ranges (e.g., "this week", "by Wednesday"): use "startDate" and "endDate" fields
+- Today's date based on CURRENT SYSTEM TIME: ${currentTime}
 
 JSON SCHEMA:
 {
   "title": "Short title",
   "description": "Extra info",
-  "date": "YYYY-MM-DD" or null,  // For single-day tasks
-  "startDate": "YYYY-MM-DD" or null,  // For date ranges (start of range)
-  "endDate": "YYYY-MM-DD" or null,    // For date ranges (end of range)
+  "date": "YYYY-MM-DD" or null,
+  "startDate": "YYYY-MM-DD" or null,
+  "endDate": "YYYY-MM-DD" or null,
   "startTime": "HH:MM" or null,
   "endTime": "HH:MM" or null,
   "deadline": "YYYY-MM-DD HH:MM" or null,
   "estimatedDuration": 60,
-  "isInbox": false,  // MUST be true if startTime is null
+  "isInbox": false,
   "tags": ["робота"],
   "confidenceScore": 90
 }`;
