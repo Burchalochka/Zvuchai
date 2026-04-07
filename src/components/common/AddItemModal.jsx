@@ -35,6 +35,7 @@ import { DEFAULT_TASK_THEME_COLOR, TASK_THEME_PALETTE } from '../../constants/ta
 import {
   resolveCalendarListDateKey,
   isItemOnCalendarDay,
+  toLocalDateKey,
 } from '../../utils/calendarDay';
 
 const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
@@ -45,6 +46,15 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [itemType, setItemType] = useState(null);
 
   const selectedDateKey = resolveCalendarListDateKey(selectedDate, todayCalendar);
+  const [taskDate, setTaskDate] = useState(selectedDateKey);
+
+  // Reset taskDate to the currently selected calendar date whenever the modal opens
+  useEffect(() => {
+    if (visible) {
+      setTaskDate(resolveCalendarListDateKey(selectedDate, todayCalendar));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const tasksToday = (tasks || []).filter(
     (t) =>
@@ -150,6 +160,29 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     if (timePickerTarget === 'end') setEndTime(value);
     setIsTimePickerVisible(false);
     setTimePickerTarget(null);
+  };
+
+  const adjustTaskDate = (delta) => {
+    const [y, m, d] = taskDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() + delta);
+    setTaskDate(toLocalDateKey(date));
+  };
+
+  const formatTaskDateLabel = (dateKey) => {
+    const todayKey = toLocalDateKey(new Date());
+    if (dateKey === todayKey) return getTranslation('today', language);
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    if (dateKey === toLocalDateKey(tomorrowDate)) return getTranslation('tomorrow', language);
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    if (dateKey === toLocalDateKey(yesterdayDate)) return getTranslation('yesterday', language);
+    const [y, mo, d] = dateKey.split('-').map(Number);
+    const months_uk = ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру'];
+    const months_en = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = language === 'en' ? months_en : months_uk;
+    return `${d} ${months[mo - 1]}`;
   };
 
   const closeConflictDialog = () => setConflictDialog(null);
@@ -508,7 +541,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     return {
       title: title.trim(),
       description: description.trim(),
-      date: noDeadline ? null : selectedDateKey,
+      date: noDeadline ? null : taskDate,
       startTime: noDeadline ? null : start,
       endTime: noDeadline ? null : end,
       estimatedDuration: duration ?? 0,
@@ -597,6 +630,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setCurrentProgress('');
     setDeadline('');
     setNoDeadline(false);
+    setTaskDate(resolveCalendarListDateKey(selectedDate, todayCalendar));
     setIsRecording(false);
     setActiveInput(null);
     setSelectedColor(DEFAULT_TASK_THEME_COLOR);
@@ -740,6 +774,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setCurrentProgress('');
     setDeadline('');
     setNoDeadline(false);
+    setTaskDate(resolveCalendarListDateKey(selectedDate, todayCalendar));
     setIsRecording(false);
     setActiveInput(null);
     setSelectedColor(DEFAULT_TASK_THEME_COLOR);
@@ -1168,6 +1203,31 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                 )}
               </View>
 
+              {!noDeadline && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{getTranslation('selectDate', language)}</Text>
+                  <View style={styles.datePickerRow}>
+                    <TouchableOpacity
+                      style={styles.dateArrowBtn}
+                      onPress={() => adjustTaskDate(-1)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="chevron-back" size={20} color={COLORS.primaryDark} />
+                    </TouchableOpacity>
+                    <Text style={styles.datePickerLabel}>{formatTaskDateLabel(taskDate)}</Text>
+                    <TouchableOpacity
+                      style={styles.dateArrowBtn}
+                      onPress={() => adjustTaskDate(1)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Icon name="chevron-forward" size={20} color={COLORS.primaryDark} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               <View style={styles.formGroup}>
                 <TouchableOpacity
                   style={styles.noDeadlineRow}
@@ -1180,10 +1240,10 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                       size={20}
                       color={COLORS.primaryDark}
                     />
-                    <Text style={styles.noDeadlineText}>Без дедлайну</Text>
+                    <Text style={styles.noDeadlineText}>{getTranslation('noDeadlineLabel', language)}</Text>
                   </View>
                   <Text style={styles.noDeadlineHint}>
-                    {noDeadline ? 'Буде в “Без дедлайну”' : 'Має час та день'}
+                    {noDeadline ? getTranslation('noDeadlineHintOn', language) : getTranslation('noDeadlineHintOff', language)}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1295,7 +1355,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
               )}
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Колір теми</Text>
+                <Text style={styles.label}>{getTranslation('themeColor', language)}</Text>
                 <View style={styles.colorPicker}>
                   {themeColors.map((color, index) => (
                     <TouchableOpacity
@@ -1321,7 +1381,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                 onPress={handleAdd}
                 activeOpacity={0.7}
               >
-                <Text style={styles.addButtonText}>Додати</Text>
+                <Text style={styles.addButtonText}>{getTranslation('addItem', language)}</Text>
               </TouchableOpacity>
               </ScrollView>
             </Animated.View>
@@ -1363,7 +1423,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
             ]}
           >
             <View style={styles.emojiPickerHeader}>
-              <Text style={styles.emojiPickerTitle}>Виберіть смайлик</Text>
+              <Text style={styles.emojiPickerTitle}>{getTranslation('selectEmoji', language)}</Text>
               <TouchableOpacity
                 onPress={() => setShowEmojiPicker(false)}
                 style={styles.emojiCloseButton}
@@ -2125,6 +2185,27 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 28,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.grayLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  dateArrowBtn: {
+    padding: 4,
+  },
+  datePickerLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: FONTS.sizes.md,
+    fontFamily: 'Montserrat-Medium',
+    color: COLORS.text,
   },
   noDeadlineRow: {
     flexDirection: 'row',

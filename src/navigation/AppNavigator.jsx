@@ -3,6 +3,7 @@ import EditTaskScreen from '../screens/EditTaskScreen';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../screens/HomeScreen';
@@ -27,6 +28,7 @@ const TabBarBackground = ({ color }) => (
 
 const AppNavigator = () => {
   const { language } = useLanguage();
+  const insets = useSafeAreaInsets();
   const customTabBar = useMemo(() => props => <BottomTabBar {...props} />, []);
 
   return (
@@ -39,8 +41,8 @@ const AppNavigator = () => {
         tabBarStyle: {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
-          height: 80,
-          paddingBottom: 12,
+          height: 80 + insets.bottom,
+          paddingBottom: 12 + insets.bottom,
           paddingTop: 12,
           borderTopLeftRadius: 40,
           borderTopRightRadius: 40,

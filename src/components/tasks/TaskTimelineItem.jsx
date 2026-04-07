@@ -182,7 +182,7 @@ const TaskTimelineItem = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id, !isVisuallyCompleted, task); }}
+              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id, !isVisuallyCompleted); }}
               activeOpacity={0.7}
             >
               {isVisuallyCompleted ? (
@@ -239,7 +239,8 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   taskCardCompleted: {
-    opacity: 0.6,
+    backgroundColor: '#F0EDEA',
+    opacity: 0.55,
   },
   taskContent: {
     flexDirection: 'row',
@@ -277,14 +278,13 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
-    fontWeight: '500',
     fontFamily: 'Montserrat-Medium',
     marginBottom: SPACING.xs,
     flexShrink: 1,
   },
   taskTitleCompleted: {
+    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
-    opacity: 0.7,
   },
   taskTitleSelected: {
     color: '#FFFFFF',

@@ -16,6 +16,8 @@ import RescheduleTaskModal from '../components/modals/RescheduleTaskModal';
 import { FONTS, SPACING, COLORS } from '../styles/theme';
 import { useTasks } from '../context/TasksContext';
 import { useSelectedDate } from '../context/SelectedDateContext';
+import { useLanguage } from '../context/LanguageContext';
+import { getTranslation } from '../utils/translations';
 import { getDayStats } from '../services/DaySummaryService';
 import {
   toLocalDateKey,
@@ -23,13 +25,14 @@ import {
   isItemOnCalendarDay,
 } from '../utils/calendarDay';
 
-const formatDate = (d) => {
+const formatDate = (d, language) => {
   const day = d.getDate();
-  const months = [
-    'січня','лютого','березня','квітня','травня','червня',
-    'липня','серпня','вересня','жовтня','листопада','грудня',
-  ];
-  const weekdays = ['Неділя','Понеділок','Вівторок','Середа','Четвер','П\'ятниця','Субота'];
+  const months_uk = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+  const months_en = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const weekdays_uk = ['Неділя','Понеділок','Вівторок','Середа','Четвер','П\'ятниця','Субота'];
+  const weekdays_en = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = language === 'en' ? months_en : months_uk;
+  const weekdays = language === 'en' ? weekdays_en : weekdays_uk;
   return `${day} ${months[d.getMonth()]} • ${weekdays[d.getDay()]}`;
 };
 
@@ -44,6 +47,7 @@ const DailySummaryScreen = ({ visible, onClose }) => {
   const insets = useSafeAreaInsets();
   const { tasks: allTasks, setTaskCompleted, deleteTask, rescheduleTask } = useTasks();
   const { selectedDate, todayCalendar } = useSelectedDate();
+  const { language } = useLanguage();
 
   const [localTasks, setLocalTasks] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -120,21 +124,21 @@ const DailySummaryScreen = ({ visible, onClose }) => {
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.handle} />
 
-        <Text style={styles.title}>Підсумки дня</Text>
-        <Text style={styles.dateLabel}>{formatDate(selectedDate)}</Text>
+        <Text style={styles.title}>{getTranslation('dailySummaryTitle', language)}</Text>
+        <Text style={styles.dateLabel}>{formatDate(selectedDate, language)}</Text>
 
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{stats.completedCount}</Text>
-            <Text style={styles.statLabel}>Виконано</Text>
+            <Text style={styles.statLabel}>{getTranslation('statCompleted', language)}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{workedLabel}</Text>
-            <Text style={styles.statLabel}>Працювали</Text>
+            <Text style={styles.statLabel}>{getTranslation('statWorked', language)}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{stats.uniqueTagsCount}</Text>
-            <Text style={styles.statLabel}>Теги</Text>
+            <Text style={styles.statLabel}>{getTranslation('statTags', language)}</Text>
           </View>
         </View>
 
@@ -156,7 +160,7 @@ const DailySummaryScreen = ({ visible, onClose }) => {
         </ScrollView>
 
         <TouchableOpacity style={styles.finishBtn} onPress={onClose}>
-          <Text style={styles.finishBtnText}>Завершити день</Text>
+          <Text style={styles.finishBtnText}>{getTranslation('finishDay', language)}</Text>
         </TouchableOpacity>
       </View>
 

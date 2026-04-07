@@ -48,7 +48,7 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
           currentRouteName !== 'Microphone' &&
           currentRouteName !== 'EditTask' && (
           <View
-            style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
+            style={[styles.fabWrapper, { bottom: 80 + insets.bottom + 8 }]}
             pointerEvents="box-none"
           >
             <View style={styles.fabPanel}>

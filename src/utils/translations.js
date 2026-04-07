@@ -135,6 +135,22 @@ export const translations = {
 
     deadZoneConflictMessage: 'Ця задача потрапляє на ваш час відпочинку',
     taskOverlapMessage: 'Цей час вже зайнятий іншою задачею',
+
+    today: 'Сьогодні',
+    tomorrow: 'Завтра',
+    yesterday: 'Вчора',
+    selectDate: 'Дата',
+    noDeadlineLabel: 'Без дедлайну',
+    noDeadlineHintOn: 'Буде в "Без дедлайну"',
+    noDeadlineHintOff: 'Має час та день',
+    themeColor: 'Колір теми',
+    addItem: 'Додати',
+    selectEmoji: 'Виберіть смайлик',
+    dailySummaryTitle: 'Підсумки дня',
+    statCompleted: 'Виконано',
+    statWorked: 'Працювали',
+    statTags: 'Теги',
+    finishDay: 'Завершити день',
   },
   en: {
     inbox: 'Inbox',
@@ -272,6 +288,22 @@ export const translations = {
 
     deadZoneConflictMessage: 'This task falls within your rest time',
     taskOverlapMessage: 'This time slot is already taken by another task',
+
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    yesterday: 'Yesterday',
+    selectDate: 'Date',
+    noDeadlineLabel: 'No deadline',
+    noDeadlineHintOn: 'Will be in "No deadline"',
+    noDeadlineHintOff: 'Has time and date',
+    themeColor: 'Theme color',
+    addItem: 'Add',
+    selectEmoji: 'Select emoji',
+    dailySummaryTitle: 'Day Summary',
+    statCompleted: 'Done',
+    statWorked: 'Worked',
+    statTags: 'Tags',
+    finishDay: 'Finish day',
   },
 };
 
