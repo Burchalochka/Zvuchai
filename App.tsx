@@ -31,7 +31,7 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
   useEffect(() => {
     const updateRoute = () => {
       const route = navigationRef.getCurrentRoute();
-      setCurrentRouteName(route?.name ?? '');
+      //setCurrentRouteName(route?.name ?? '');
     };
 
     updateRoute();
@@ -43,24 +43,24 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
     };
   }, []);
 
-  const handleSplashFinish = () => {
+  /*const handleSplashFinish = () => {
     setShowSplash(false);
     setShowLanguageSelection(true);
   };
 
   const handleLanguageSelected = () => {
     setShowLanguageSelection(false);
-  };
+  };*/
 
-  if (showSplash) {
+  /*if (showSplash) {
     return <SplashScreen onFinish={handleSplashFinish} />;
-  }
+  }*/
 
-  if (showLanguageSelection) {
+  /*if (showLanguageSelection) {
     return (
       <LanguageSelectionScreen onLanguageSelected={handleLanguageSelected} />
     );
-  }
+  }*/
 const hiddenRoutes = [
     'Microphone',
     'Step1Sleep',
@@ -78,11 +78,8 @@ const hiddenRoutes = [
 
         {/* ПЕРЕВІРКА: Показуємо кнопку, ТІЛЬКИ ЯКЩО поточного екрана немає в списку hiddenRoutes */}
         {!hiddenRoutes.includes(currentRouteName) && (
-          currentRouteName !== 'Microphone' && (
-          currentRouteName !== 'Microphone' &&
-          currentRouteName !== 'EditTask' && (
           <View
-            style={[styles.fabWrapper, { bottom: 80 + insets.bottom + 8 }]}
+            style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
             pointerEvents="box-none"
           >
             <View style={styles.fabPanel}>

@@ -83,43 +83,29 @@ export interface Goal extends BaseItem {
 
 export interface DeadZone {
   id: string;
-<<<<<<< onboarding
-  name: string;      // наприклад: 'Сон', 'Особистий час', 'Спорт'
-  startTime: string; // 'HH:mm'
-  endTime: string;   // 'HH:mm'
-  color?: string;    // Колір для відображення на діаграмі (наприклад, '#FFB6C1')
-=======
   name: string;
   startTime: string;
   endTime: string;
->>>>>>> develop
+  color?: string;
 }
 
-// Типи для нових відповідей з онбордингу
 export type ProductiveTime = 'morning' | 'afternoon' | 'evening' | 'night' | 'dont_know';
 export type WorkType = 'mental' | 'physical';
 export type WorkFormat = 'single_tasking' | 'multi_tasking';
-export type HasDistractions = 'yes' | 'no'; // Діти або домашні улюбленці
+export type HasDistractions = 'yes' | 'no';
 export type FatigueLevel = 'rarely' | 'sometimes' | 'almost_daily';
 
 export interface UserPreferences {
   deadZones: DeadZone[];
-<<<<<<< onboarding
-  eveningReportTime: string; // за замовчуванням '21:00'
-  
-  // Нові поля з онбордингу
+  eveningReportTime: string;
   sleepSchedule: {
-    start: string; // 'HH:mm'
-    end: string;   // 'HH:mm'
+    start: string;
+    end: string;
   } | null;
   productiveTime: ProductiveTime | null;
   workType: WorkType | null;
   workFormat: WorkFormat | null;
   hasDistractions: HasDistractions | null;
   fatigueLevel: FatigueLevel | null;
-  isOnboardingCompleted: boolean; // Прапорець, щоб знати, чи показувати онбординг знову
+  isOnboardingCompleted: boolean;
 }
-=======
-  eveningReportTime: string;
-}
->>>>>>> develop
