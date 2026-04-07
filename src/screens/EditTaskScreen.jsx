@@ -6,14 +6,12 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Switch,
   Alert,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTasks } from '../context/TasksContext';
-import Calendar from '../components/calendar/Calendar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../styles/theme';
 
@@ -33,6 +31,7 @@ const EditTaskScreen = () => {
   const [endTime, setEndTime] = useState(null);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Initialize form with task data
   useEffect(() => {
@@ -97,6 +96,14 @@ const EditTaskScreen = () => {
     setShowEndTimePicker(false);
     if (selected) {
       setEndTime(selected);
+    }
+  };
+
+  // Handle date change
+  const handleDateChange = (event, selected) => {
+    setShowDatePicker(false);
+    if (selected) {
+      setSelectedDate(selected.toISOString().split('T')[0]);
     }
   };
 
@@ -285,16 +292,40 @@ const EditTaskScreen = () => {
           />
         </View>
 
-        {/* Deadline Toggle */}
+        {/* Deadline Toggle - Tab Switcher */}
         <View style={styles.toggleSection}>
-          <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>Задача з дедлайном / розкладом?</Text>
-            <Switch
-              value={hasDeadline}
-              onValueChange={setHasDeadline}
-              trackColor={{ false: COLORS.grayLight, true: COLORS.secondary }}
-              thumbColor={hasDeadline ? COLORS.primaryDark : COLORS.gray}
-            />
+          <Text style={styles.toggleLabel}>Задача з дедлайном / розкладом?</Text>
+          <View style={styles.tabSwitcher}>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                !hasDeadline && styles.tabButtonActive,
+                styles.tabButtonLeft
+              ]}
+              onPress={() => setHasDeadline(false)}
+            >
+              <Text style={[
+                styles.tabButtonText,
+                !hasDeadline && styles.tabButtonTextActive
+              ]}>
+                Без дедлайну
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.tabButton,
+                hasDeadline && styles.tabButtonActive,
+                styles.tabButtonRight
+              ]}
+              onPress={() => setHasDeadline(true)}
+            >
+              <Text style={[
+                styles.tabButtonText,
+                hasDeadline && styles.tabButtonTextActive
+              ]}>
+                З дедлайном
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -304,74 +335,77 @@ const EditTaskScreen = () => {
             {/* Date Picker */}
             <View style={styles.inputSection}>
               <Text style={styles.label}>Дата *</Text>
-              <View style={styles.dateDisplay}>
+              <TouchableOpacity
+                style={styles.dateDisplay}
+                onPress={() => setShowDatePicker(true)}
+              >
                 <Text style={styles.dateText}>
                   {selectedDate ? formatDate(selectedDate) : 'Оберіть дату'}
                 </Text>
-                <Calendar
-                  onDateSelect={(date) => setSelectedDate(date)}
-                  initialDate={selectedDate}
-                  mode="picker"
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate ? new Date(selectedDate) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  locale="uk-UA"
                 />
-              </View>
+              )}
             </View>
 
             {/* Time Pickers */}
             <View style={styles.timeSection}>
               <Text style={styles.label}>Час</Text>
               
-              {/* Start Time */}
-              <View style={styles.timeRow}>
-                <View style={styles.timeColumn}>
+              <View style={styles.compactTimeRow}>
+                {/* Start Time */}
+                <View style={styles.compactTimeContainer}>
                   <Text style={styles.timeLabel}>Початок</Text>
-                  <View style={styles.timePickerRow}>
+                  <TouchableOpacity
+                    style={styles.compactTimeButton}
+                    onPress={() => setShowStartTimePicker(true)}
+                  >
+                    <Text style={styles.compactTimeButtonText}>
+                      {formatTime(startTime)}
+                    </Text>
+                  </TouchableOpacity>
+                  {startTime && (
                     <TouchableOpacity
-                      style={styles.timeButton}
-                      onPress={() => setShowStartTimePicker(true)}
+                      style={styles.compactClearButton}
+                      onPress={clearStartTime}
                     >
-                      <Text style={styles.timeButtonText}>
-                        {formatTime(startTime)}
-                      </Text>
+                      <Text style={styles.compactClearButtonText}>×</Text>
                     </TouchableOpacity>
-                    {startTime && (
-                      <TouchableOpacity
-                        style={styles.clearButton}
-                        onPress={clearStartTime}
-                      >
-                        <Text style={styles.clearButtonText}>×</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  )}
                 </View>
 
-                {/* Spacer */}
-                <View style={styles.timeSpacer} />
-
                 {/* End Time */}
-                <View style={styles.timeColumn}>
+                <View style={styles.compactTimeContainer}>
                   <Text style={styles.timeLabel}>Кінець</Text>
-                  <View style={styles.timePickerRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.compactTimeButton,
+                      !startTime && styles.compactTimeButtonDisabled
+                    ]}
+                    onPress={() => setShowEndTimePicker(true)}
+                    disabled={!startTime}
+                  >
+                    <Text style={[
+                      styles.compactTimeButtonText,
+                      !startTime && styles.compactTimeButtonTextDisabled
+                    ]}>
+                      {formatTime(endTime)}
+                    </Text>
+                  </TouchableOpacity>
+                  {endTime && (
                     <TouchableOpacity
-                      style={styles.timeButton}
-                      onPress={() => setShowEndTimePicker(true)}
-                      disabled={!startTime}
+                      style={styles.compactClearButton}
+                      onPress={clearEndTime}
                     >
-                      <Text style={[
-                        styles.timeButtonText,
-                        !startTime && styles.disabledText
-                      ]}>
-                        {formatTime(endTime)}
-                      </Text>
+                      <Text style={styles.compactClearButtonText}>×</Text>
                     </TouchableOpacity>
-                    {endTime && (
-                      <TouchableOpacity
-                        style={styles.clearButton}
-                        onPress={clearEndTime}
-                      >
-                        <Text style={styles.clearButtonText}>×</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  )}
                 </View>
               </View>
 
@@ -406,13 +440,6 @@ const EditTaskScreen = () => {
       {/* Bottom Action Row */}
       <View style={styles.bottomActions}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={handleDelete}
-        >
-          <Text style={styles.deleteButtonText}>Видалити</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.actionButton, styles.cancelButton]}
           onPress={handleCancel}
         >
@@ -420,10 +447,17 @@ const EditTaskScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.actionButton, styles.deleteButton]}
+          onPress={handleDelete}
+        >
+          <Text style={styles.deleteButtonText}>Видалити</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.actionButton, styles.saveButton]}
           onPress={handleSave}
         >
-          <Text style={styles.saveButtonText}>Зберегти</Text>
+          <Text style={styles.saveButtonText}>Готово</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -483,17 +517,44 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: COLORS.border,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   toggleLabel: {
     fontSize: FONTS.sizes.md,
     fontFamily: FONTS.medium,
     color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 20,
+    padding: 2,
+    height: 44,
+  },
+  tabButton: {
     flex: 1,
-    marginRight: SPACING.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: 'transparent',
+  },
+  tabButtonLeft: {
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  tabButtonRight: {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.accentBrown,
+  },
+  tabButtonText: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    color: COLORS.accentBrown,
+  },
+  tabButtonTextActive: {
+    color: COLORS.background,
   },
   dateTimeSection: {
     backgroundColor: COLORS.panel,
@@ -518,15 +579,56 @@ const styles = StyleSheet.create({
   timeSection: {
     marginTop: SPACING.lg,
   },
-  timeRow: {
+  compactTimeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  timeColumn: {
-    flex: 1,
+  compactTimeContainer: {
+    width: 120,
+    height: 100,
+    alignItems: 'center',
   },
-  timeSpacer: {
-    width: SPACING.xl,
+  compactTimeButton: {
+    width: '100%',
+    height: 60,
+    backgroundColor: COLORS.panelLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+  },
+  compactTimeButtonDisabled: {
+    backgroundColor: COLORS.grayLight,
+    borderColor: COLORS.borderLight,
+  },
+  compactTimeButtonText: {
+    fontSize: FONTS.sizes.lg,
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+  },
+  compactTimeButtonTextDisabled: {
+    color: COLORS.textSecondary,
+    opacity: 0.5,
+  },
+  compactClearButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.grayLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+  },
+  compactClearButtonText: {
+    fontSize: FONTS.sizes.md,
+    fontFamily: FONTS.bold,
+    color: COLORS.textSecondary,
   },
   timeLabel: {
     fontSize: FONTS.sizes.sm,
@@ -534,54 +636,21 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
   },
-  timePickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeButton: {
-    flex: 1,
-    backgroundColor: COLORS.panelLight,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    justifyContent: 'center',
-  },
-  timeButtonText: {
-    fontSize: FONTS.sizes.md,
-    fontFamily: FONTS.regular,
-    color: COLORS.text,
-    textAlign: 'center',
-  },
   disabledText: {
     color: COLORS.textSecondary,
     opacity: 0.5,
-  },
-  clearButton: {
-    marginLeft: SPACING.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.grayLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearButtonText: {
-    fontSize: FONTS.sizes.lg,
-    fontFamily: FONTS.bold,
-    color: COLORS.textSecondary,
   },
   bottomSpacer: {
     height: SPACING.xxl,
   },
   bottomActions: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: SPACING.md,
     backgroundColor: COLORS.background,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    gap: SPACING.sm,
   },
   actionButton: {
     flex: 1,
@@ -589,6 +658,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
+    marginHorizontal: SPACING.xs,
   },
   deleteButton: {
     backgroundColor: 'transparent',

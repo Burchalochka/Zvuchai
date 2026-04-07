@@ -45,7 +45,8 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
 
         {!!currentRouteName &&
           currentRouteName !== 'Splash' &&
-          currentRouteName !== 'Microphone' && (
+          currentRouteName !== 'Microphone' &&
+          currentRouteName !== 'EditTask' && (
           <View
             style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
             pointerEvents="box-none"
