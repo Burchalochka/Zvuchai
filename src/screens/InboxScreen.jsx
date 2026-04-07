@@ -327,12 +327,17 @@ const InboxScreen = () => {
           data={filteredTasks}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <InboxTaskCard
-              task={item}
-              showConfidence={activeMainTab === MAIN_TABS.AI_UNSURE}
-              mainTab={activeMainTab}
-              onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
-            />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('EditTask', { task: item })}
+            >
+              <InboxTaskCard
+                task={item}
+                showConfidence={activeMainTab === MAIN_TABS.AI_UNSURE}
+                mainTab={activeMainTab}
+                onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
+              />
+            </TouchableOpacity>
           )}
           contentContainerStyle={[
             styles.listContent,

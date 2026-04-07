@@ -248,7 +248,13 @@ const HomeScreen = ({ route }) => {
     <TaskTimelineItem
       task={item}
       selected={selectedItemId === item.id}
-      onPressOpenEdit={() => setEditTarget(item)}
+      onPressOpenEdit={() => {
+        if (item.type === 'task') {
+          navigation.navigate('EditTask', { task: item });
+        } else {
+          setEditTarget(item);
+        }
+      }}
       onLongPressCard={() => setActionsTarget(item)}
       onToggleComplete={(id, nextCompleted) => (
         activeTab === 'tasks'
@@ -263,7 +269,13 @@ const HomeScreen = ({ route }) => {
     <TaskTimelineItem
       task={item}
       selected={selectedItemId === item.id}
-      onPressOpenEdit={() => setEditTarget(item)}
+      onPressOpenEdit={() => {
+        if (item.type === 'task') {
+          navigation.navigate('EditTask', { task: item });
+        } else {
+          setEditTarget(item);
+        }
+      }}
       onLongPressCard={drag}
       onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
       onOpenActions={(t) => setActionsTarget(t)}
@@ -381,7 +393,13 @@ const HomeScreen = ({ route }) => {
                   <DayTimeline
                     dateKey={selectedKey}
                     items={sortedTasks}
-                    onPressItem={(item) => setEditTarget(item)}
+                    onPressItem={(item) => {
+                      if (item.type === 'task') {
+                        navigation.navigate('EditTask', { task: item });
+                      } else {
+                        setEditTarget(item);
+                      }
+                    }}
                     onLongPressItem={(item) => setActionsTarget(item)}
                     onToggleComplete={toggleTaskComplete}
                     onSetCompleted={setTaskCompleted}
@@ -409,7 +427,13 @@ const HomeScreen = ({ route }) => {
                 <DayTimeline
                   dateKey={selectedKey}
                   items={sortedHabits}
-                  onPressItem={(item) => setEditTarget(item)}
+                  onPressItem={(item) => {
+                    if (item.type === 'task') {
+                      navigation.navigate('EditTask', { task: item });
+                    } else {
+                      setEditTarget(item);
+                    }
+                  }}
                   onLongPressItem={(item) => setActionsTarget(item)}
                   onToggleComplete={toggleHabitComplete}
                   onSetCompleted={setHabitCompleted}
