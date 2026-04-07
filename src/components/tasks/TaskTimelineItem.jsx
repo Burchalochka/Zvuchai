@@ -55,13 +55,23 @@ const TaskTimelineItem = ({
   const { language } = useLanguage();
 
   const parseTime = (timeStr) => {
-    if (!timeStr) {
+    // Handle null, undefined, empty string, or non-string values
+    if (!timeStr || typeof timeStr !== 'string') {
       return { hours: 0, minutes: 0 };
     }
-    const [hours, minutes] = timeStr.split(':');
+    
+    // Handle malformed time strings
+    const parts = timeStr.split(':');
+    if (parts.length < 2) {
+      return { hours: 0, minutes: 0 };
+    }
+    
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    
     return {
-      hours: parseInt(hours) || 0,
-      minutes: parseInt(minutes) || 0
+      hours: isNaN(hours) ? 0 : hours,
+      minutes: isNaN(minutes) ? 0 : minutes
     };
   };
 
@@ -172,7 +182,7 @@ const TaskTimelineItem = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id, !isVisuallyCompleted, task); }}
+              onPress={(e) => { e?.stopPropagation?.(); onToggleComplete(task.id, !isVisuallyCompleted); }}
               activeOpacity={0.7}
             >
               {isVisuallyCompleted ? (
@@ -229,7 +239,8 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   taskCardCompleted: {
-    opacity: 0.6,
+    backgroundColor: '#F0EDEA',
+    opacity: 0.55,
   },
   taskContent: {
     flexDirection: 'row',
@@ -267,14 +278,13 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: FONTS.sizes.md,
     color: COLORS.text,
-    fontWeight: '500',
     fontFamily: 'Montserrat-Medium',
     marginBottom: SPACING.xs,
     flexShrink: 1,
   },
   taskTitleCompleted: {
+    color: COLORS.textSecondary,
     textDecorationLine: 'line-through',
-    opacity: 0.7,
   },
   taskTitleSelected: {
     color: '#FFFFFF',

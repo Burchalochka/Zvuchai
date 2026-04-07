@@ -12,12 +12,21 @@ import {
   Platform,
   Alert,
   Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AudioRecorderPlayerModule from 'react-native-audio-recorder-player';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { useTasks } from '../context/TasksContext';
 import { BACKEND_URL } from '../config/devConfig';
+import {
+  checkTimeConflict,
+  formatDate,
+  getTaskTimeDisplay,
+  getTaskDateDisplay,
+  processBackendTaskResponse,
+} from '../utils/taskUtils';
 
 const BAR_HEIGHTS = [
   13.89, 29.75, 47.61, 29.75, 13.89, 29.75, 47.61, 71.41, 47.61, 29.75, 47.61,
@@ -56,50 +65,10 @@ const createAudioRecorderPlayerInstance = () => {
   throw new Error('AudioRecorderPlayer export has unsupported shape');
 };
 
-/**
- * Checks if a new task conflicts with existing tasks based on time overlap.
- * @param {Object} newTask - The new task with startTime, endTime, and date properties
- * @param {Array} existingTasks - Array of existing tasks
- * @returns {Object|null} - Returns conflicting task if found, null otherwise
- */
-const checkTimeConflict = (newTask, existingTasks) => {
-  if (!newTask.startTime || !newTask.endTime || !newTask.date) {
-    return null; // No time specified, no conflict
-  }
-
-  const newStart = parseHHmm(newTask.startTime);
-  const newEnd = parseHHmm(newTask.endTime);
-  const newDate = newTask.date;
-
-  for (const existing of existingTasks) {
-    // Skip tasks without time or on different dates
-    if (!existing.startTime || !existing.endTime || existing.date !== newDate) {
-      continue;
-    }
-
-    const existingStart = parseHHmm(existing.startTime);
-    const existingEnd = parseHHmm(existing.endTime);
-
-    // Check for overlap (half-open interval: [start, end))
-    if (newStart < existingEnd && newEnd > existingStart) {
-      return existing; // Conflict found
-    }
-  }
-
-  return null; // No conflict
-};
-
-/**
- * Parses "HH:mm" string to minutes since midnight
- */
-const parseHHmm = (hhmm) => {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-};
 
 export default function MicrophoneScreen() {
   const navigation = useNavigation();
-  const { tasks, addTask } = useTasks();
+  const { tasks, addTask, updateTask } = useTasks();
 
   const audioRecorderPlayerRef = useRef(createAudioRecorderPlayerInstance());
   const startAnimationTimeoutsRef = useRef([]);
@@ -116,7 +85,11 @@ export default function MicrophoneScreen() {
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [conflictingTask, setConflictingTask] = useState(null);
-  const [rescheduledTask, setRescheduledTask] = useState(null);
+  const [taskBeingRescheduled, setTaskBeingRescheduled] = useState(null); // 'new' or 'existing'
+  const [rescheduleChoice, setRescheduleChoice] = useState(null); // 'new', 'existing', or 'save-anyway'
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleStartTime, setRescheduleStartTime] = useState('');
+  const [rescheduleEndTime, setRescheduleEndTime] = useState('');
 
   const animatedValues = useRef(
     BAR_HEIGHTS.map(() => new Animated.Value(1)),
@@ -224,8 +197,8 @@ export default function MicrophoneScreen() {
    */
   const testBackendConnection = async () => {
     try {
-      const testUrl = 'http://localhost:3000/api/process-audio';
-      const response = await fetch('http://localhost:3000/health', {
+      const testUrl = 'https://zvuchai.onrender.com/api/process-audio';
+      const response = await fetch('https://zvuchai.onrender.com/health', {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         timeout: 5000,
@@ -307,7 +280,7 @@ export default function MicrophoneScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 30 second timeout
       
-      const response = await fetch('http://localhost:3000/api/process-audio', {
+      const response = await fetch('https://zvuchai.onrender.com/api/process-audio', {
         method: 'POST',
         body: formData,
         headers: {
@@ -373,125 +346,8 @@ export default function MicrophoneScreen() {
           // Get current device time
           const now = new Date();
           const currentHour = now.getHours();
-          const currentMinute = now.getMinutes();
-          
-          // Apply business rules with new Universal Inbox Rule
-          // Get fields from backend response (including new startDate/endDate for ranges)
-          let finalDate = data.task.date || null;
-          let finalStartDate = data.task.startDate || null;
-          let finalEndDate = data.task.endDate || null;
-          let finalStartTime = data.task.startTime || null;
-          let finalEndTime = data.task.endTime || null;
-          let finalDeadline = data.task.deadline || null;
-          const isInbox = data.task.isInbox === true;
-          
-          // UNIVERSAL INBOX RULE: If isInbox is true, startTime and endTime MUST be null
-          // This is already enforced by the backend, but we double-check here
-          if (isInbox) {
-            finalStartTime = null;
-            finalEndTime = null;
-            // For inbox tasks, we keep date/deadline as provided but times must be null
-          }
-          
-          // Handle date ranges: if we have startDate/endDate but no single date
-          if (finalStartDate && finalEndDate && !finalDate) {
-            // For date range tasks, use startDate as the primary date
-            finalDate = finalStartDate;
-          }
-          
-          // If no date at all, default to today (but only for non-inbox tasks with times)
-          if (!finalDate && !finalStartDate && !isInbox) {
-            finalDate = new Date().toISOString().split('T')[0];
-          }
-          
-          // TIME HANDLING RULES (only apply if not inbox)
-          if (!isInbox) {
-            // 1. TODAY RULE: If date is today and no specific time provided but we have a time
-            if (finalDate === new Date().toISOString().split('T')[0] && !finalStartTime && !finalDeadline) {
-              // Set startTime to current hour, endTime to startTime + 1 hour
-              finalStartTime = formatTime(currentHour, currentMinute);
-              const endMinutes = currentHour * 60 + currentMinute + 60;
-              const endHour = Math.floor(endMinutes / 60) % 24;
-              const endMinute = endMinutes % 60;
-              finalEndTime = formatTime(endHour, endMinute);
-            }
-            // 2. DEADLINE RULE: If deadline exists but no start time
-            else if (finalDeadline && !finalStartTime) {
-              // Calculate startTime as 1 hour before deadline
-              finalStartTime = calculateStartTimeFromDeadline(finalDeadline);
-              if (finalStartTime) {
-                // Calculate endTime as startTime + 1 hour (or use deadline time)
-                const startMinutes = parseTimeToMinutes(finalStartTime);
-                if (startMinutes !== null) {
-                  const endMinutes = startMinutes + 60;
-                  const endHour = Math.floor(endMinutes / 60) % 24;
-                  const endMinute = endMinutes % 60;
-                  finalEndTime = formatTime(endHour, endMinute);
-                }
-              }
-            }
-            // 3. Default time handling: if startTime exists but no endTime
-            else if (finalStartTime && !finalEndTime) {
-              const startMinutes = parseTimeToMinutes(finalStartTime);
-              if (startMinutes !== null) {
-                const endMinutes = startMinutes + 60;
-                const endHour = Math.floor(endMinutes / 60) % 24;
-                const endMinute = endMinutes % 60;
-                finalEndTime = formatTime(endHour, endMinute);
-              }
-            }
-            // 4. If no time information at all (shouldn't happen for non-inbox, but as fallback)
-            else if (!finalStartTime && !finalEndTime && !finalDeadline) {
-              // Default to 9:00 - 10:00
-              finalStartTime = '09:00';
-              finalEndTime = '10:00';
-            }
-          }
-          
-          // Final validation: if startTime is null, ensure isInbox is true
-          // This is a safety check to prevent crashes in timeline view
-          if (!finalStartTime && !isInbox) {
-            console.warn('Task has no startTime but isInbox is false. Forcing to inbox.');
-            // Force to inbox to prevent timeline crashes
-            isInbox = true;
-            finalStartTime = null;
-            finalEndTime = null;
-          }
-
-          const newParsedTask = {
-            id: `voice-${Date.now()}`,
-            type: 'task',
-            title: data.task.title || 'Без назви',
-            description: data.task.description || '',
-            date: finalDate,
-            startDate: finalStartDate,  // New field for date ranges
-            endDate: finalEndDate,      // New field for date ranges
-            startTime: finalStartTime,
-            endTime: finalEndTime,
-            status: 'pending',
-            themeColor: '#4A90E2',
-            priority: 'medium',
-            difficulty: 'medium',
-            estimatedDuration: data.task.estimatedDuration || 60,
-            dueDate: null,
-            deadline: finalDeadline,
-            isInbox: isInbox,  // Include isInbox flag
-            tags: data.task.tags || [],
-            reminder: {
-              mode: 'before_start',
-              minutesBefore: 15,
-              time: null,
-              recurrent: false,
-              enabled: false,
-            },
-            linkedGoalId: null,
-            voiceNote: audioUri,
-            completedAt: null,
-            archived: false,
-            deletedAt: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
+          // Use utility function to process backend task response
+          const newParsedTask = processBackendTaskResponse(data.task, audioUri);
           setParsedTask(newParsedTask);
         }
       }
@@ -686,15 +542,23 @@ export default function MicrophoneScreen() {
     }
   };
 
-  const saveTask = async (task) => {
+  const saveTask = async (task, isUpdate = false, existingTaskId = null) => {
     try {
-      // Use the TasksContext addTask function
-      addTask(task);
-      console.log('Task saved:', task);
+      if (isUpdate && existingTaskId) {
+        // Update existing task
+        updateTask(existingTaskId, task);
+        console.log('Task updated:', task);
+      } else {
+        // Add new task
+        addTask(task);
+        console.log('Task saved:', task);
+      }
       
-      // Clear parsed task state
-      setParsedTask(null);
-      setRecognizedText('');
+      // Clear parsed task state if it's a new task
+      if (!isUpdate) {
+        setParsedTask(null);
+        setRecognizedText('');
+      }
     } catch (error) {
       console.log('Save task error:', error);
       throw error;
@@ -743,6 +607,46 @@ export default function MicrophoneScreen() {
 
           {!isRecording &&
             !isProcessing &&
+            parsedTask && (
+              <TouchableOpacity
+                style={styles.taskPreviewCard}
+                activeOpacity={0.7}
+                onPress={() => {
+                  navigation.navigate('EditTask', { task: parsedTask });
+                }}
+              >
+                {/* Title with ScrollView for long titles */}
+                <ScrollView
+                  style={styles.titleScrollView}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled={true}
+                >
+                  <Text style={styles.taskPreviewTitle}>{parsedTask.title}</Text>
+                </ScrollView>
+                
+                <View style={styles.taskPreviewDetails}>
+                  <View style={styles.taskPreviewDetailRow}>
+                    <Icon name="calendar-outline" size={16} color="#7A6A5C" style={styles.detailIcon} />
+                    <Text style={styles.taskPreviewDetailLabel}>Дата:</Text>
+                    <Text style={styles.taskPreviewDetailValue}>
+                      {getTaskDateDisplay(parsedTask)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.taskPreviewDetailRow}>
+                    <Icon name="time-outline" size={16} color="#7A6A5C" style={styles.detailIcon} />
+                    <Text style={styles.taskPreviewDetailLabel}>Час:</Text>
+                    <Text style={styles.taskPreviewDetailValue}>
+                      {getTaskTimeDisplay(parsedTask)}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+            
+          {!isRecording &&
+            !isProcessing &&
+            !parsedTask &&
             recognizedText.trim().length > 0 && (
               <View style={styles.textCard}>
                 <ScrollView
@@ -833,17 +737,40 @@ export default function MicrophoneScreen() {
                 style={[styles.modalButton, styles.modalButtonReschedule]}
                 onPress={() => {
                   setShowConflictModal(false);
+                  setTaskBeingRescheduled('new');
+                  setRescheduleChoice('new');
+                  // Initialize reschedule fields with parsed task values
+                  setRescheduleDate(parsedTask?.date || '');
+                  setRescheduleStartTime(parsedTask?.startTime || '');
+                  setRescheduleEndTime(parsedTask?.endTime || '');
                   setShowRescheduleModal(true);
                 }}
               >
-                <Text style={styles.modalButtonRescheduleText}>Перенести</Text>
+                <Text style={styles.modalButtonRescheduleText}>Перенести нову задачу</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonReschedule]}
+                onPress={() => {
+                  setShowConflictModal(false);
+                  setTaskBeingRescheduled('existing');
+                  setRescheduleChoice('existing');
+                  // Initialize reschedule fields with conflicting task values
+                  setRescheduleDate(conflictingTask?.date || '');
+                  setRescheduleStartTime(conflictingTask?.startTime || '');
+                  setRescheduleEndTime(conflictingTask?.endTime || '');
+                  setShowRescheduleModal(true);
+                }}
+              >
+                <Text style={styles.modalButtonRescheduleText}>Перенести існуючу задачу</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSave]}
                 onPress={async () => {
                   setShowConflictModal(false);
-                  await saveTask(parsedTask);
+                  setRescheduleChoice('save-anyway');
+                  await saveTask(parsedTask, false, null);
                   navigation.goBack();
                 }}
               >
@@ -865,35 +792,43 @@ export default function MicrophoneScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Перенести задачу</Text>
             <Text style={styles.modalSubtitle}>
-              Оберіть нову дату та час для задачі "{parsedTask?.title}"
+              {taskBeingRescheduled === 'new'
+                ? `Оберіть нову дату та час для нової задачі "${parsedTask?.title}"`
+                : `Оберіть нову дату та час для існуючої задачі "${conflictingTask?.title}"`}
             </Text>
             
             <View style={styles.rescheduleForm}>
               <View style={styles.rescheduleField}>
-                <Text style={styles.rescheduleLabel}>Дата</Text>
-                <TouchableOpacity style={styles.rescheduleInput}>
-                  <Text style={styles.rescheduleInputText}>
-                    {parsedTask?.date || 'Оберіть дату'}
-                  </Text>
-                </TouchableOpacity>
+                <Text style={styles.rescheduleLabel}>Дата (YYYY-MM-DD)</Text>
+                <TextInput
+                  style={styles.rescheduleInput}
+                  value={rescheduleDate}
+                  onChangeText={setRescheduleDate}
+                  placeholder="Наприклад: 2024-12-31"
+                  placeholderTextColor="#999"
+                />
               </View>
               
               <View style={styles.rescheduleField}>
-                <Text style={styles.rescheduleLabel}>Час початку</Text>
-                <TouchableOpacity style={styles.rescheduleInput}>
-                  <Text style={styles.rescheduleInputText}>
-                    {parsedTask?.startTime || '09:00'}
-                  </Text>
-                </TouchableOpacity>
+                <Text style={styles.rescheduleLabel}>Час початку (HH:MM)</Text>
+                <TextInput
+                  style={styles.rescheduleInput}
+                  value={rescheduleStartTime}
+                  onChangeText={setRescheduleStartTime}
+                  placeholder="Наприклад: 14:00"
+                  placeholderTextColor="#999"
+                />
               </View>
               
               <View style={styles.rescheduleField}>
-                <Text style={styles.rescheduleLabel}>Час завершення</Text>
-                <TouchableOpacity style={styles.rescheduleInput}>
-                  <Text style={styles.rescheduleInputText}>
-                    {parsedTask?.endTime || '10:00'}
-                  </Text>
-                </TouchableOpacity>
+                <Text style={styles.rescheduleLabel}>Час завершення (HH:MM)</Text>
+                <TextInput
+                  style={styles.rescheduleInput}
+                  value={rescheduleEndTime}
+                  onChangeText={setRescheduleEndTime}
+                  placeholder="Наприклад: 15:00"
+                  placeholderTextColor="#999"
+                />
               </View>
             </View>
             
@@ -902,7 +837,6 @@ export default function MicrophoneScreen() {
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => {
                   setShowRescheduleModal(false);
-                  setRescheduledTask(null);
                 }}
               >
                 <Text style={styles.modalButtonCancelText}>Скасувати</Text>
@@ -911,31 +845,78 @@ export default function MicrophoneScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonReschedule]}
                 onPress={async () => {
-                  // Create rescheduled task copy
-                  const rescheduled = {
-                    ...parsedTask,
-                    date: parsedTask?.date || new Date().toISOString().split('T')[0],
-                    startTime: parsedTask?.startTime || '09:00',
-                    endTime: parsedTask?.endTime || '10:00',
-                  };
-                  
-                  // Check for conflicts again with rescheduled time
-                  const conflict = checkTimeConflict(rescheduled, tasks);
-                  
-                  if (conflict) {
-                    Alert.alert(
-                      'Конфлікт часу',
-                      'Обраний час також конфліктує з існуючою задачею. Спробуйте інший час.',
-                      [{ text: 'OK' }]
-                    );
+                  // Validate inputs
+                  if (!rescheduleDate || !rescheduleStartTime || !rescheduleEndTime) {
+                    Alert.alert('Помилка', 'Будь ласка, заповніть всі поля');
                     return;
                   }
+
+                  // Determine which task is being rescheduled
+                  let taskToReschedule;
+                  if (taskBeingRescheduled === 'new') {
+                    // Reschedule the new parsed task
+                    taskToReschedule = {
+                      ...parsedTask,
+                      date: rescheduleDate,
+                      startTime: rescheduleStartTime,
+                      endTime: rescheduleEndTime,
+                    };
+                  } else {
+                    // Reschedule the existing conflicting task
+                    taskToReschedule = {
+                      ...conflictingTask,
+                      date: rescheduleDate,
+                      startTime: rescheduleStartTime,
+                      endTime: rescheduleEndTime,
+                    };
+                  }
+
+                  // Recursive conflict checking
+                  // Get all tasks except the one being edited
+                  const tasksToCheck = tasks.filter(task => {
+                    if (taskBeingRescheduled === 'new') {
+                      // When rescheduling new task, exclude it (it's not in tasks yet)
+                      return true; // Check all existing tasks
+                    } else {
+                      // When rescheduling existing task, exclude that specific task
+                      return task.id !== conflictingTask?.id;
+                    }
+                  });
+
+                  // Check for conflicts with the new time
+                  const newConflict = checkTimeConflict(taskToReschedule, tasksToCheck);
                   
-                  // Save rescheduled task
-                  await saveTask(rescheduled);
-                  setShowRescheduleModal(false);
-                  setRescheduledTask(null);
-                  navigation.goBack();
+                  if (newConflict) {
+                    // Show alert but DON'T close the modal
+                    Alert.alert(
+                      'Знову накладання',
+                      `Обраний час накладається на задачу: "${newConflict.title}"`,
+                      [{ text: 'OK' }]
+                    );
+                    return; // Stay in the modal
+                  }
+
+                  // No conflict - save the task
+                  try {
+                    if (taskBeingRescheduled === 'new') {
+                      // Save the new task with rescheduled time
+                      await saveTask(taskToReschedule, false, null);
+                    } else {
+                      // Update the existing task
+                      await saveTask(taskToReschedule, true, conflictingTask?.id);
+                    }
+                    
+                    // Close modal and navigate back
+                    setShowRescheduleModal(false);
+                    setRescheduleDate('');
+                    setRescheduleStartTime('');
+                    setRescheduleEndTime('');
+                    setTaskBeingRescheduled(null);
+                    navigation.goBack();
+                  } catch (error) {
+                    console.log('Save error:', error);
+                    Alert.alert('Помилка', 'Не вдалося зберегти задачу');
+                  }
                 }}
               >
                 <Text style={styles.modalButtonRescheduleText}>Зберегти</Text>
@@ -958,7 +939,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFCF0',
     alignItems: 'center',
-    paddingTop: 120,
+    justifyContent: 'space-between',
+    paddingTop: 80,
     paddingBottom: 34,
     paddingHorizontal: 14,
   },
@@ -974,7 +956,7 @@ const styles = StyleSheet.create({
   },
 
   recordingRow: {
-    marginTop: 60,
+    marginTop: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -996,10 +978,12 @@ const styles = StyleSheet.create({
   },
 
   middleSection: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     width: '100%',
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 30,
+    justifyContent: 'center',
   },
 
   waveContainer: {
@@ -1045,12 +1029,88 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  // Task Preview Card styles - Updated to match brown/cream sloth aesthetic
+  taskPreviewCard: {
+    width: '90%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 50,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    backgroundColor: 'rgba(245, 240, 230, 0.95)', // Light cream background
+    borderWidth: 1,
+    borderColor: 'rgba(229, 220, 205, 0.8)', // Light brown border
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+
+  titleScrollView: {
+    maxHeight: 60, // Limit height for long titles
+    marginBottom: 12,
+  },
+
+  taskPreviewTitle: {
+    color: 'rgba(69, 44, 22, 1)', // Brown text
+    fontSize: 20,
+    lineHeight: 26,
+    fontFamily: 'Montserrat-SemiBold',
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
+
+  taskPreviewDetails: {
+    marginBottom: 8,
+  },
+
+  taskPreviewDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+
+  detailIcon: {
+    marginRight: 8,
+    width: 20,
+    textAlign: 'center',
+  },
+
+  taskPreviewDetailLabel: {
+    color: 'rgba(122, 106, 92, 1)', // Muted brown
+    fontSize: 15,
+    fontFamily: 'Montserrat-Medium',
+    width: 60,
+    marginRight: 12,
+  },
+
+  taskPreviewDetailValue: {
+    flex: 1,
+    color: 'rgba(69, 44, 22, 1)', // Brown text
+    fontSize: 15,
+    fontFamily: 'Montserrat-SemiBold',
+    textAlign: 'right',
+  },
+
+  taskPreviewHint: {
+    color: '#7A6A5C',
+    fontSize: 12,
+    fontFamily: 'Montserrat-Regular',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+
   bottomButtons: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
-    marginBottom: 10,
+    marginTop: 20,
+    marginBottom: 30,
+    paddingHorizontal: 20,
   },
 
   sideButton: {
@@ -1205,6 +1265,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#E5DCCD',
+    fontSize: 16,
+    fontFamily: 'Montserrat-Regular',
+    color: '#452C16',
   },
 
   rescheduleInputText: {

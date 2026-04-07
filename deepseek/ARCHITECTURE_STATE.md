@@ -70,7 +70,7 @@ graph TD
 2. **Any state change** (add, toggle, delete, reschedule) triggers a `useEffect` that calls `TaskStorage.saveAll()`.
 3. **StorageService** writes the array to MMKV under the key `tasks`.
 4. **HomeScreen** filters tasks by selected date and passes them to `TaskTimelineItem`.
-5. **InboxScreen** filters tasks with `date == null` (no deadline) and uses **mock data** for the “AI Unsure” tab.
+5. **InboxScreen** filters tasks with `date == null` (no deadline) and uses real tasks with `status === 'requires_review'` for the “AI Unsure” tab. Checkbox (toggle completion) and pencil (edit) buttons are now connected to `TasksContext` and provide visual feedback.
 
 ### Modal Windows
 - **AddItemModal**: Multi‑step form for creating tasks/habits/goals; includes voice‑input integration (via `@react-native-voice/voice`).
@@ -91,10 +91,10 @@ graph TD
 ### Inbox Screen Gaps
 | Gap | Description | Impact |
 |-----|-------------|--------|
-| **AI Unsure tab uses mock data** | The tab `MAIN_TABS.AI_UNSURE` filters `MOCK_TASKS` instead of real tasks with `status === 'requires_review'`. | Users never see actual AI‑generated tasks that need review. |
-| **Action buttons are inert** | The checkmark (approve), X (reject), and pencil (edit) buttons have no `onPress` logic. | Users cannot approve, reject, or edit tasks from the Inbox. |
-| **No connection to TasksContext** | The Inbox does not call `updateTask`, `deleteTask`, or `rescheduleTask` for the mock items. | The Inbox is a read‑only UI with no real functionality. |
-| **Missing confidence display** | The confidence badge shows mock scores; real tasks lack a confidence field (score is transient). | Users cannot gauge AI certainty for real tasks. |
+| **AI Unsure tab uses real tasks** | The tab `MAIN_TABS.AI_UNSURE` now filters real tasks with `status === 'requires_review'`. However, the voice pipeline does not yet produce such tasks, so the tab may be empty. | Users will see AI‑generated tasks needing review once the voice pipeline is integrated. |
+| **Action buttons partially connected** | The checkmark (toggle completion) and pencil (edit) buttons are now connected to `TasksContext` and navigation, providing full CRUD functionality for standard tasks. The X (reject) button remains inert pending backend integration for AI‑unsure tasks. | Users can mark tasks as completed and edit them, but cannot reject AI‑unsure tasks. |
+| **Connection to TasksContext established** | The Inbox now calls `setTaskCompleted` for toggle completion and navigates to `EditTaskScreen` for editing, establishing a connection to `TasksContext`. However, reject and approve actions for AI‑unsure tasks are not yet connected. | The Inbox is now partially functional for standard task management. |
+| **Missing confidence display** | Real tasks currently lack a persistent `confidenceScore` field; the badge only appears for mock tasks. The confidence score is transient and not stored. | Users cannot gauge AI certainty for real tasks. |
 
 ### Main Screen ↔ LocalStorage Gaps
 | Gap | Description | Impact |

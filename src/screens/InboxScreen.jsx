@@ -83,7 +83,7 @@ const InboxScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  const { tasks } = useTasks();
+  const { tasks, setTaskCompleted } = useTasks();
 
   const [activeMainTab, setActiveMainTab] = useState(MAIN_TABS.NO_DEADLINE);
   const [activeSubTab, setActiveSubTab] = useState(SUB_TABS.ALL);
@@ -116,8 +116,9 @@ const InboxScreen = () => {
           deadlineType = 'flexible';
         }
 
-        // Determine status for AI unsure tab
-        const status = task.status === 'requires_review' ? 'requires_review' : 'pending';
+        // Determine status for AI unsure tab - preserve completed status
+        const status = task.status === 'requires_review' ? 'requires_review' :
+                      task.status === 'completed' ? 'completed' : 'pending';
 
         return {
           id: task.id,
@@ -130,6 +131,7 @@ const InboxScreen = () => {
           dateInfo,
           timeInfo: task.startTime,
           dateRange: task.startDate && task.endDate ? `${task.startDate} — ${task.endDate}` : undefined,
+          autoDoneOverride: task.autoDoneOverride,
         };
       });
   }, [tasks]);
@@ -166,6 +168,7 @@ const InboxScreen = () => {
         dateInfo: 'Без дедлайну',
         timeInfo: undefined,
         dateRange: undefined,
+        autoDoneOverride: t.autoDoneOverride,
       }));
 
     const base =
@@ -331,7 +334,11 @@ const InboxScreen = () => {
               task={item}
               showConfidence={activeMainTab === MAIN_TABS.AI_UNSURE}
               mainTab={activeMainTab}
-              onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
+              onToggleComplete={(id, nextCompleted) => {
+                console.log('onToggleComplete called with id:', id, 'nextCompleted:', nextCompleted);
+                setTaskCompleted(id, nextCompleted);
+              }}
+              onEdit={() => navigation.navigate('EditTask', { task: item })}
             />
           )}
           contentContainerStyle={[
@@ -375,7 +382,7 @@ const InboxScreen = () => {
   );
 };
 
-const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
+const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete, onEdit }) => {
   const isNoDeadline = mainTab === MAIN_TABS.NO_DEADLINE;
   const hasConfidence = showConfidence && typeof task.confidenceScore === 'number';
   const manualOverride = task?.autoDoneOverride;
@@ -391,7 +398,7 @@ const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
     return (
       <View style={styles.cardContainer}>
         <View style={styles.cardContentNoDeadline}>
-          <Text style={styles.cardTitle}>{task.title}</Text>
+          <Text style={[styles.cardTitle, isVisuallyCompleted && styles.cardTitleDone]}>{task.title}</Text>
           <View style={styles.cardDateRow}>
             <Icon name="calendar-outline" size={15} color="#514134" style={styles.cardDateIcon} />
             <View>
@@ -406,16 +413,25 @@ const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
         <View style={styles.noDeadlineActions}>
           <TouchableOpacity
             style={styles.circleActionBtn}
-            onPress={() => onToggleComplete?.(task.id, !isVisuallyCompleted)}
+            onPress={() => {
+              console.log('Checkbox pressed for task:', task.id, 'current completed:', isVisuallyCompleted);
+              onToggleComplete?.(task.id, !isVisuallyCompleted);
+            }}
             activeOpacity={0.8}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Image
-              source={isVisuallyCompleted ? DONE_ICON : EMPTY_ICON}
-              style={styles.noDeadlineStatusIcon}
-              resizeMode="contain"
-            />
+            {isVisuallyCompleted ? (
+              <View style={styles.checkboxFilled}>
+                <Icon name="checkmark" size={16} color="#FFFFFF" />
+              </View>
+            ) : (
+              <View style={styles.checkboxEmpty} />
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.circleActionBtn, { marginTop: 6 }]}>
+          <TouchableOpacity
+            style={[styles.circleActionBtn, { marginTop: 6 }]}
+            onPress={() => onEdit?.()}
+          >
             <Icon name="pencil-outline" size={16} color="#514134" />
           </TouchableOpacity>
         </View>
@@ -426,7 +442,7 @@ const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
   return (
     <View style={styles.cardContainerAi}>
       <View style={styles.cardHeaderRow}>
-        <Text style={styles.cardTitleAi}>{task.title}</Text>
+        <Text style={[styles.cardTitleAi, isVisuallyCompleted && styles.cardTitleAiDone]}>{task.title}</Text>
         {hasConfidence && (
           <View style={styles.confidenceBadge}>
             <Text style={styles.confidenceText}>{`${task.confidenceScore}%`}</Text>
@@ -449,13 +465,29 @@ const InboxTaskCard = ({ task, showConfidence, mainTab, onToggleComplete }) => {
         </View>
 
         <View style={styles.aiActionsRow}>
-          <TouchableOpacity style={styles.circleActionBtn}>
-            <Icon name="checkmark-outline" size={17} color="#514134" />
+          <TouchableOpacity
+            style={styles.circleActionBtn}
+            onPress={() => {
+              console.log('Checkbox pressed for AI task:', task.id, 'current completed:', isVisuallyCompleted);
+              onToggleComplete?.(task.id, !isVisuallyCompleted);
+            }}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            {isVisuallyCompleted ? (
+              <View style={styles.checkboxFilled}>
+                <Icon name="checkmark" size={16} color="#FFFFFF" />
+              </View>
+            ) : (
+              <View style={styles.checkboxEmpty} />
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={[styles.circleActionBtn, { marginHorizontal: 4 }]}>
             <Icon name="close-outline" size={17} color="#514134" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.circleActionBtn}>
+          <TouchableOpacity
+            style={styles.circleActionBtn}
+            onPress={() => onEdit?.()}
+          >
             <Icon name="pencil-outline" size={15} color="#514134" />
           </TouchableOpacity>
         </View>
@@ -829,6 +861,30 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat-SemiBold',
     marginBottom: 8,
     marginRight: 8,
+  },
+  cardTitleDone: {
+    textDecorationLine: 'line-through',
+    color: '#A89880',
+  },
+  cardTitleAiDone: {
+    textDecorationLine: 'line-through',
+    color: '#A89880',
+  },
+  checkboxEmpty: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#C5BAA8',
+    backgroundColor: 'transparent',
+  },
+  checkboxFilled: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardDateRow: {
     flexDirection: 'row',

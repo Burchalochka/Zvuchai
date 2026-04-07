@@ -29,7 +29,6 @@ const AppContent = ({ currentRouteName }: { currentRouteName: string }) => {
   const [fabMode, setFabMode] = useState('plus');
 
   useEffect(() => {
-<<<<<<< onboarding
     const updateRoute = () => {
       const route = navigationRef.getCurrentRoute();
       setCurrentRouteName(route?.name ?? '');
@@ -71,32 +70,19 @@ const hiddenRoutes = [
     'Step5Fatigue',
     'Step6Summary'
   ];
-=======
-    if (!currentRouteName) return;
-    if (currentRouteName === 'Microphone') {
-      setFabMode('voice');
-    } else if (fabMode !== 'plus') {
-      setFabMode('plus');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentRouteName]);
->>>>>>> develop
 
   return (
     <>
       <View style={styles.container}>
         <AppNavigator />
 
-<<<<<<< onboarding
         {/* ПЕРЕВІРКА: Показуємо кнопку, ТІЛЬКИ ЯКЩО поточного екрана немає в списку hiddenRoutes */}
         {!hiddenRoutes.includes(currentRouteName) && (
-=======
-        {!!currentRouteName &&
-          currentRouteName !== 'Splash' &&
           currentRouteName !== 'Microphone' && (
->>>>>>> develop
+          currentRouteName !== 'Microphone' &&
+          currentRouteName !== 'EditTask' && (
           <View
-            style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
+            style={[styles.fabWrapper, { bottom: 80 + insets.bottom + 8 }]}
             pointerEvents="box-none"
           >
             <View style={styles.fabPanel}>
