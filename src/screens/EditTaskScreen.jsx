@@ -13,7 +13,21 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTasks } from '../context/TasksContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import CustomTimePicker from '../components/common/CustomTimePicker';
 import { COLORS, FONTS, SPACING, RADIUS } from '../styles/theme';
+
+// Helper to parse "HH:MM" into total minutes
+const parseHHmm = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') return NaN;
+  const parts = timeStr.split(':');
+  if (parts.length !== 2) return NaN;
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return NaN;
+  }
+  return hours * 60 + minutes;
+};
 
 const EditTaskScreen = () => {
   const navigation = useNavigation();
@@ -27,10 +41,8 @@ const EditTaskScreen = () => {
   const [tag, setTag] = useState('');
   const [hasDeadline, setHasDeadline] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [startTime, setStartTime] = useState(null);
-  const [endTime, setEndTime] = useState(null);
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [startTime, setStartTime] = useState(null); // string "HH:MM" or null
+  const [endTime, setEndTime] = useState(null);     // string "HH:MM" or null
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Initialize form with task data
@@ -46,57 +58,39 @@ const EditTaskScreen = () => {
       
       if (hasDate) {
         setSelectedDate(task.date);
+        // Normalize time strings
+        const normalizeTime = (value) => {
+          if (!value) return null;
+          if (typeof value === 'string') return value;
+          if (value instanceof Date) {
+            return value.toLocaleTimeString('uk-UA', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            });
+          }
+          return null;
+        };
         if (task.startTime) {
-          // Parse time string to Date object
-          const [hours, minutes] = task.startTime.split(':').map(Number);
-          const startDate = new Date();
-          startDate.setHours(hours, minutes, 0, 0);
-          setStartTime(startDate);
+          setStartTime(normalizeTime(task.startTime));
         }
         if (task.endTime) {
-          const [hours, minutes] = task.endTime.split(':').map(Number);
-          const endDate = new Date();
-          endDate.setHours(hours, minutes, 0, 0);
-          setEndTime(endDate);
+          setEndTime(normalizeTime(task.endTime));
         }
       }
     }
   }, [task]);
 
-  // Format time for display
-  const formatTime = (time) => {
-    if (!time) return 'Не вибрано';
-    if (typeof time === 'string') return time;
-    if (time instanceof Date) {
-      return time.toLocaleTimeString('uk-UA', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      });
-    }
-    return 'Не вибрано';
-  };
-
-  // Handle start time change
-  const handleStartTimeChange = (event, selected) => {
-    setShowStartTimePicker(false);
-    if (selected) {
-      setStartTime(selected);
-      // If end time is not set, set it to 1 hour later
-      if (!endTime) {
-        const end = new Date(selected);
-        end.setHours(end.getHours() + 1);
-        setEndTime(end);
-      }
-    }
-  };
-
-  // Handle end time change
-  const handleEndTimeChange = (event, selected) => {
-    setShowEndTimePicker(false);
-    if (selected) {
-      setEndTime(selected);
-    }
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Не вибрано';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('uk-UA', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
   // Handle date change
@@ -130,10 +124,32 @@ const EditTaskScreen = () => {
       return false;
     }
 
+    // Time validation for timeline tasks
+    if (hasDeadline && selectedDate && startTime) {
+      const startMinutes = parseHHmm(startTime);
+      if (isNaN(startMinutes)) {
+        Alert.alert('Помилка', 'Невірний формат початкового часу');
+        return false;
+      }
+
+      // If endTime provided, validate it's after startTime
+      if (endTime) {
+        const endMinutes = parseHHmm(endTime);
+        if (isNaN(endMinutes)) {
+          Alert.alert('Помилка', 'Невірний формат кінцевого часу');
+          return false;
+        }
+        if (endMinutes <= startMinutes) {
+          Alert.alert('Помилка', 'Кінцевий час повинен бути пізніше початкового');
+          return false;
+        }
+      }
+    }
+
     return true;
   };
 
-  // Format updated task object based on business logic
+  // Format updated task object
   const formatUpdatedTask = () => {
     const baseTask = {
       id: task.id,
@@ -169,22 +185,21 @@ const EditTaskScreen = () => {
 
     // Scenario C: Timeline task (has date and start time)
     if (hasDeadline && selectedDate && startTime) {
-      const formattedStartTime = formatTime(startTime);
       let formattedEndTime = null;
-      
       if (endTime) {
-        formattedEndTime = formatTime(endTime);
+        formattedEndTime = endTime;
       } else {
         // Calculate end time as start time + 1 hour
-        const end = new Date(startTime);
-        end.setHours(end.getHours() + 1);
-        formattedEndTime = formatTime(end);
+        const [hours, minutes] = startTime.split(':').map(Number);
+        let endHour = hours + 1;
+        if (endHour >= 24) endHour = 0;
+        formattedEndTime = `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       }
 
       return {
         ...baseTask,
         date: selectedDate,
-        startTime: formattedStartTime,
+        startTime: startTime,
         endTime: formattedEndTime,
         isInbox: false,
         deadline: `${selectedDate} ${formattedEndTime}`,
@@ -200,6 +215,12 @@ const EditTaskScreen = () => {
 
     const updatedTask = formatUpdatedTask();
     updateTask(task.id, updatedTask);
+    
+    // CRITICAL CALLBACK
+    if (route.params?.onSave) {
+      route.params.onSave(updatedTask);
+    }
+    
     navigation.goBack();
   };
 
@@ -227,18 +248,6 @@ const EditTaskScreen = () => {
     navigation.goBack();
   };
 
-  // Format date for display
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Не вибрано';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('uk-UA', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -248,6 +257,7 @@ const EditTaskScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Редагувати завдання</Text>
@@ -358,77 +368,41 @@ const EditTaskScreen = () => {
             <View style={styles.timeSection}>
               <Text style={styles.label}>Час</Text>
               
-              <View style={styles.compactTimeRow}>
-                {/* Start Time */}
-                <View style={styles.compactTimeContainer}>
+              <View style={styles.timePickersRow}>
+                {/* Start Time Picker */}
+                <View style={styles.timePickerContainer}>
                   <Text style={styles.timeLabel}>Початок</Text>
-                  <TouchableOpacity
-                    style={styles.compactTimeButton}
-                    onPress={() => setShowStartTimePicker(true)}
-                  >
-                    <Text style={styles.compactTimeButtonText}>
-                      {formatTime(startTime)}
-                    </Text>
-                  </TouchableOpacity>
+                  <CustomTimePicker
+                    value={startTime}
+                    onChange={setStartTime}
+                  />
                   {startTime && (
                     <TouchableOpacity
-                      style={styles.compactClearButton}
+                      style={styles.clearButton}
                       onPress={clearStartTime}
                     >
-                      <Text style={styles.compactClearButtonText}>×</Text>
+                      <Text style={styles.clearButtonText}>Очистити</Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                {/* End Time */}
-                <View style={styles.compactTimeContainer}>
+                {/* End Time Picker */}
+                <View style={styles.timePickerContainer}>
                   <Text style={styles.timeLabel}>Кінець</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.compactTimeButton,
-                      !startTime && styles.compactTimeButtonDisabled
-                    ]}
-                    onPress={() => setShowEndTimePicker(true)}
-                    disabled={!startTime}
-                  >
-                    <Text style={[
-                      styles.compactTimeButtonText,
-                      !startTime && styles.compactTimeButtonTextDisabled
-                    ]}>
-                      {formatTime(endTime)}
-                    </Text>
-                  </TouchableOpacity>
+                  <CustomTimePicker
+                    value={endTime}
+                    onChange={setEndTime}
+                  />
                   {endTime && (
                     <TouchableOpacity
-                      style={styles.compactClearButton}
+                      style={styles.clearButton}
                       onPress={clearEndTime}
                     >
-                      <Text style={styles.compactClearButtonText}>×</Text>
+                      <Text style={styles.clearButtonText}>Очистити</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               </View>
-
-              {/* Time Pickers Modals */}
-              {showStartTimePicker && (
-                <DateTimePicker
-                  value={startTime || new Date()}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleStartTimeChange}
-                  locale="uk-UA"
-                />
-              )}
-
-              {showEndTimePicker && (
-                <DateTimePicker
-                  value={endTime || new Date()}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleEndTimeChange}
-                  locale="uk-UA"
-                />
-              )}
             </View>
           </View>
         )}
@@ -560,7 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.panel,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   dateDisplay: {
     flexDirection: 'row',
@@ -577,68 +551,36 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   timeSection: {
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
   },
-  compactTimeRow: {
+  timePickersRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: SPACING.md,
   },
-  compactTimeContainer: {
-    width: 120,
-    height: 100,
+  timePickerContainer: {
+    flex: 1,
     alignItems: 'center',
-  },
-  compactTimeButton: {
-    width: '100%',
-    height: 60,
-    backgroundColor: COLORS.panelLight,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  compactTimeButtonDisabled: {
-    backgroundColor: COLORS.grayLight,
-    borderColor: COLORS.borderLight,
-  },
-  compactTimeButtonText: {
-    fontSize: FONTS.sizes.lg,
-    fontFamily: FONTS.medium,
-    color: COLORS.text,
-  },
-  compactTimeButtonTextDisabled: {
-    color: COLORS.textSecondary,
-    opacity: 0.5,
-  },
-  compactClearButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: COLORS.grayLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  compactClearButtonText: {
-    fontSize: FONTS.sizes.md,
-    fontFamily: FONTS.bold,
-    color: COLORS.textSecondary,
   },
   timeLabel: {
     fontSize: FONTS.sizes.sm,
     fontFamily: FONTS.medium,
     color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
+    textAlign: 'center',
   },
-  disabledText: {
+  clearButton: {
+    marginTop: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.grayLight,
+    borderRadius: RADIUS.sm,
+  },
+  clearButtonText: {
+    fontSize: FONTS.sizes.xs,
+    fontFamily: FONTS.medium,
     color: COLORS.textSecondary,
-    opacity: 0.5,
   },
   bottomSpacer: {
     height: SPACING.xxl,
@@ -689,4 +631,5 @@ const styles = StyleSheet.create({
     color: COLORS.background,
   },
 });
+
 export default EditTaskScreen;
