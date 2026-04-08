@@ -612,7 +612,10 @@ export default function MicrophoneScreen() {
                 style={styles.taskPreviewCard}
                 activeOpacity={0.7}
                 onPress={() => {
-                  navigation.navigate('EditTask', { task: parsedTask });
+                  navigation.navigate('EditTask', {
+                    task: parsedTask,
+                    onSave: (updatedTask) => setParsedTask(prev => prev ? { ...prev, ...updatedTask } : updatedTask)
+                  });
                 }}
               >
                 {/* Title with ScrollView for long titles */}
