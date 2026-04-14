@@ -1189,6 +1189,7 @@ export default function DayTimeline({
                                       flex: 0,
                                       height: itemHeight,
                                       backgroundColor: cardBg2,
+                                      opacity: visuallyDone ? 0.55 : 1,
                                       borderColor: isLemonCard2
                                         ? 'rgba(69,44,22,0.20)'
                                         : isWhiteCard2
@@ -1332,7 +1333,7 @@ export default function DayTimeline({
                                               ]}
                                             >
                                               <Text
-                                                style={styles.titleText}
+                                                style={[styles.titleText, visuallyDone ? styles.titleCompleted : null]}
                                                 numberOfLines={ctl}
                                                 ellipsizeMode="tail"
                                               >
@@ -1546,6 +1547,7 @@ export default function DayTimeline({
                       styles.card,
                       {
                         backgroundColor: cardBg,
+                        opacity: isVisuallyCompleted ? 0.55 : 1,
                         borderColor: isLemonCard
                           ? 'rgba(69,44,22,0.20)'
                           : isWhiteCard
@@ -1706,7 +1708,7 @@ export default function DayTimeline({
                               ]}
                             >
                               <Text
-                                style={styles.titleText}
+                                style={[styles.titleText, isVisuallyCompleted ? styles.titleCompleted : null]}
                                 numberOfLines={titleLineCount}
                                 ellipsizeMode="tail"
                               >
@@ -2287,6 +2289,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.medium,
     lineHeight: 18,
     flexShrink: 1,
+  },
+  titleCompleted: {
+    textDecorationLine: 'line-through',
+    opacity: 0.7,
   },
   checkBtnBase: {
     position: 'absolute',
