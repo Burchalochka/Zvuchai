@@ -151,6 +151,12 @@ export const translations = {
     statWorked: 'Працювали',
     statTags: 'Теги',
     finishDay: 'Завершити день',
+    timeline: 'На часовій шкалі',
+    flexibleTasks: 'Гнучкі завдання',
+    resetSort: 'Скинути сортування',
+    dueBy: 'До',
+    emptyDayNoFlexibleTitle: 'Немає гнучких завдань на цей день.',
+    emptyDayNoFlexibleHint: 'Натисніть «+», щоб додати гнучке завдання.',
   },
   en: {
     inbox: 'Inbox',
@@ -304,6 +310,12 @@ export const translations = {
     statWorked: 'Worked',
     statTags: 'Tags',
     finishDay: 'Finish day',
+    timeline: 'Timeline',
+    flexibleTasks: 'Flexible tasks',
+    resetSort: 'Reset sort',
+    dueBy: 'By',
+    emptyDayNoFlexibleTitle: 'No flexible tasks for this day.',
+    emptyDayNoFlexibleHint: 'Tap "+" to add a flexible task.',
   },
 };
 

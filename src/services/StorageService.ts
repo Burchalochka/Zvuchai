@@ -64,3 +64,19 @@ export const PreferencesStorage = {
     store.set(KEYS.preferences, JSON.stringify(prefs));
   },
 };
+
+// ─── FlexibleTaskOrder ────────────────────────────────────────────────────────
+
+export const FlexibleTaskOrderStorage = {
+  load: (dateKey: string): string[] => {
+    const raw = store.getString(`flexibleTaskOrder_${dateKey}`);
+    if (!raw) return [];
+    try { return JSON.parse(raw) as string[]; } catch { return []; }
+  },
+  save: (dateKey: string, ids: string[]): void => {
+    store.set(`flexibleTaskOrder_${dateKey}`, JSON.stringify(ids));
+  },
+  clear: (dateKey: string): void => {
+    store.set(`flexibleTaskOrder_${dateKey}`, '[]');
+  },
+};

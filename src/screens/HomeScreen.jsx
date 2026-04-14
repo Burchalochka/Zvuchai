@@ -17,6 +17,8 @@ import Svg, { Line } from 'react-native-svg';
 import Header from '../components/common/Header';
 import Calendar from '../components/calendar/Calendar';
 import TaskTimelineItem from '../components/tasks/TaskTimelineItem';
+import FlexibleTaskItem from '../components/tasks/FlexibleTaskItem';
+import { FlexibleTaskOrderStorage } from '../services/StorageService';
 import DayTimeline from '../components/day/DayTimeline';
 import DailySummaryScreen from './DailySummaryScreen';
 import DeleteTaskModal from '../components/modals/DeleteTaskModal';
@@ -27,7 +29,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useSelectedDate } from '../context/SelectedDateContext';
 import { useModal } from '../context/ModalContext';
 import { getTranslation } from '../utils/translations';
-import { COLORS, SPACING, FONTS } from '../styles/theme';
+import { COLORS, SPACING, FONTS, RADIUS } from '../styles/theme';
 import { getTasksForDate } from '../services/DataLayerService';
 import { getDayStats } from '../services/DaySummaryService';
 import {
@@ -55,25 +57,19 @@ const HomeScreen = ({ route }) => {
   const navigation = useNavigation();
   const {
     tasks,
-    habits,
     toggleTaskComplete,
-    toggleHabitComplete,
     setTaskCompleted,
-    setHabitCompleted,
     deleteTask,
-    deleteHabit,
     rescheduleTask,
-    rescheduleHabit,
     updateTask,
-    updateHabit,
     reorderTasksForDate,
-    reorderHabitsForDate,
   } = useTasks();
   const { language } = useLanguage();
   const { selectedDate, setSelectedDate, todayCalendar } = useSelectedDate();
   useModal();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState('tasks');
+  const [activeTab, setActiveTab] = useState('timeline');
+  const [flexibleOrderByDate, setFlexibleOrderByDate] = useState({});
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [isDailySummaryVisible, setIsDailySummaryVisible] = useState(false);
   const [calendarMenuVisible, setCalendarMenuVisible] = useState(false);
@@ -112,11 +108,22 @@ const HomeScreen = ({ route }) => {
 
   const selectedKey = resolveCalendarListDateKey(selectedDate, todayCalendar);
   const tasksForDay = (tasks || []).filter((t) => isItemOnCalendarDay(t, selectedKey));
-  const habitsForDay = (habits || []).filter((h) => isItemOnCalendarDay(h, selectedKey));
 
+  // Load flexible task order from MMKV when day changes
+  useEffect(() => {
+    if (!selectedKey) return;
+    if (flexibleOrderByDate[selectedKey] !== undefined) return;
+    const saved = FlexibleTaskOrderStorage.load(selectedKey);
+    if (saved.length > 0) {
+      setFlexibleOrderByDate((prev) => ({ ...prev, [selectedKey]: saved }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey]);
 
+  const timelineTasksForDay = tasksForDay.filter((t) => t.startTime !== null);
+  const flexibleTasksForDay = tasksForDay.filter((t) => t.startTime === null && !t.isInbox);
 
-  const sortedTasks = [...tasksForDay].sort((a, b) => {
+  const sortedTimelineTasks = [...timelineTasksForDay].sort((a, b) => {
     const aIdx = Number.isFinite(a?.sortIndex) ? a.sortIndex : null;
     const bIdx = Number.isFinite(b?.sortIndex) ? b.sortIndex : null;
     if (aIdx !== null && bIdx !== null) return aIdx - bIdx;
@@ -129,18 +136,28 @@ const HomeScreen = ({ route }) => {
     return (aHours || 0) * 60 + (aMinutes || 0) - (bHours || 0) * 60 - (bMinutes || 0);
   });
 
-  const sortedHabits = [...habitsForDay].sort((a, b) => {
-    const aIdx = Number.isFinite(a?.sortIndex) ? a.sortIndex : null;
-    const bIdx = Number.isFinite(b?.sortIndex) ? b.sortIndex : null;
-    if (aIdx !== null && bIdx !== null) return aIdx - bIdx;
-    if (aIdx !== null) return -1;
-    if (bIdx !== null) return 1;
-    const aStr = (a && a.startTime) ? String(a.startTime) : '09:00';
-    const bStr = (b && b.startTime) ? String(b.startTime) : '09:00';
-    const [aHours, aMinutes] = aStr.split(':').map(Number);
-    const [bHours, bMinutes] = bStr.split(':').map(Number);
-    return (aHours || 0) * 60 + (aMinutes || 0) - (bHours || 0) * 60 - (bMinutes || 0);
-  });
+  const sortedFlexibleTasks = useMemo(() => {
+    const parseEndTime = (t) => {
+      if (!t) return Infinity;
+      const [h, m] = t.split(':').map(Number);
+      return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+    };
+    const defaultSort = (items) =>
+      [...items].sort((a, b) => parseEndTime(a.endTime) - parseEndTime(b.endTime));
+
+    const customOrder = flexibleOrderByDate[selectedKey];
+    if (!customOrder || customOrder.length === 0) {
+      return defaultSort(flexibleTasksForDay);
+    }
+    const ordered = customOrder
+      .map((id) => flexibleTasksForDay.find((t) => String(t.id) === String(id)))
+      .filter(Boolean);
+    const unordered = flexibleTasksForDay.filter(
+      (t) => !customOrder.includes(String(t.id)),
+    );
+    return [...ordered, ...defaultSort(unordered)];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flexibleTasksForDay, flexibleOrderByDate, selectedKey]);
 
   const hasAnyScheduledTaskElsewhere = useMemo(
     () =>
@@ -151,17 +168,8 @@ const HomeScreen = ({ route }) => {
     [tasks],
   );
 
-  const hasAnyScheduledHabitElsewhere = useMemo(
-    () =>
-      (habits || []).some((h) => {
-        if (!h || h.deletedAt || h.archived) return false;
-        return !!itemScheduledDayKey(h.date);
-      }),
-    [habits],
-  );
-
-  const emptyTasksHint = useMemo(() => {
-    if (sortedTasks.length > 0) return null;
+  const emptyTimelineHint = useMemo(() => {
+    if (sortedTimelineTasks.length > 0) return null;
     if (hasAnyScheduledTaskElsewhere) {
       return {
         title: getTranslation('emptyDayNoTasksTitle', language),
@@ -172,29 +180,23 @@ const HomeScreen = ({ route }) => {
       title: getTranslation('startJourneyTasks', language),
       sub: getTranslation('addFirstTask', language),
     };
-  }, [sortedTasks.length, hasAnyScheduledTaskElsewhere, language]);
+  }, [sortedTimelineTasks.length, hasAnyScheduledTaskElsewhere, language]);
 
-  const emptyHabitsHint = useMemo(() => {
-    if (sortedHabits.length > 0) return null;
-    if (hasAnyScheduledHabitElsewhere) {
-      return {
-        title: getTranslation('emptyDayNoHabitsTitle', language),
-        sub: getTranslation('emptyDayNoHabitsHint', language),
-      };
-    }
+  const emptyFlexibleHint = useMemo(() => {
+    if (sortedFlexibleTasks.length > 0) return null;
     return {
-      title: getTranslation('startJourneyHabits', language),
-      sub: getTranslation('addFirstHabit', language),
+      title: getTranslation('emptyDayNoFlexibleTitle', language),
+      sub: getTranslation('emptyDayNoFlexibleHint', language),
     };
-  }, [sortedHabits.length, hasAnyScheduledHabitElsewhere, language]);
+  }, [sortedFlexibleTasks.length, language]);
 
   const showDayRailBridge =
     calendarViewMode === 'day' &&
-    ((activeTab === 'tasks' && sortedTasks.length > 0) ||
-      (activeTab === 'habits' && sortedHabits.length > 0));
+    activeTab === 'timeline' &&
+    sortedTimelineTasks.length > 0;
 
   const listIsEmptyForActiveTab =
-    activeTab === 'tasks' ? sortedTasks.length === 0 : sortedHabits.length === 0;
+    activeTab === 'timeline' ? sortedTimelineTasks.length === 0 : sortedFlexibleTasks.length === 0;
 
   const monthOpenListShellStyle =
     isCalendarStripExpanded && listIsEmptyForActiveTab
@@ -207,18 +209,31 @@ const HomeScreen = ({ route }) => {
 
   const moveDayItemOrder = (item, delta) => {
     if (!item || !selectedKey) return;
-    const isHabit = activeTab === 'habits';
-    const list = isHabit ? sortedHabits : sortedTasks;
+    const isFlexible = activeTab === 'flexible';
+    const list = isFlexible ? sortedFlexibleTasks : sortedTimelineTasks;
     const idx = list.findIndex((x) => x.id === item.id);
     const j = idx + delta;
     if (idx < 0 || j < 0 || j >= list.length) return;
-    const next = list.map((x) => x.id);
+    const next = list.map((x) => String(x.id));
     const tmp = next[idx];
     next[idx] = next[j];
     next[j] = tmp;
-    if (isHabit) reorderHabitsForDate(selectedKey, next);
-    else reorderTasksForDate(selectedKey, next);
+    if (isFlexible) {
+      setFlexibleOrderByDate((prev) => ({ ...prev, [selectedKey]: next }));
+      FlexibleTaskOrderStorage.save(selectedKey, next);
+    } else {
+      reorderTasksForDate(selectedKey, next);
+    }
     setActionsTarget(null);
+  };
+
+  const handleResetFlexibleSort = () => {
+    setFlexibleOrderByDate((prev) => {
+      const next = { ...prev };
+      delete next[selectedKey];
+      return next;
+    });
+    FlexibleTaskOrderStorage.clear(selectedKey);
   };
 
   const stats = getDayStats(tasksForDay);
@@ -236,11 +251,7 @@ const HomeScreen = ({ route }) => {
       setRescheduleTarget(null);
       return;
     }
-    if (item.type === 'habit') {
-      rescheduleHabit(id, newKey);
-    } else {
-      rescheduleTask(id, newKey);
-    }
+    rescheduleTask(id, newKey);
     setRescheduleTarget(null);
   };
 
@@ -256,11 +267,7 @@ const HomeScreen = ({ route }) => {
         }
       }}
       onLongPressCard={() => setActionsTarget(item)}
-      onToggleComplete={(id, nextCompleted) => (
-        activeTab === 'tasks'
-          ? setTaskCompleted(id, nextCompleted)
-          : setHabitCompleted(id, nextCompleted)
-      )}
+      onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
       onOpenActions={(t) => setActionsTarget(t)}
     />
   );
@@ -278,6 +285,26 @@ const HomeScreen = ({ route }) => {
       }}
       onLongPressCard={drag}
       onToggleComplete={(id, nextCompleted) => setTaskCompleted(id, nextCompleted)}
+      onOpenActions={(t) => setActionsTarget(t)}
+    />
+  );
+
+  const renderFlexibleItem = ({ item }) => (
+    <FlexibleTaskItem
+      task={item}
+      onPress={() => navigation.navigate('EditTask', { task: item })}
+      onLongPress={() => setActionsTarget(item)}
+      onToggleComplete={(id, completed) => setTaskCompleted(id, completed)}
+      onOpenActions={(t) => setActionsTarget(t)}
+    />
+  );
+
+  const renderFlexibleDragItem = ({ item, drag }) => (
+    <FlexibleTaskItem
+      task={item}
+      onPress={() => navigation.navigate('EditTask', { task: item })}
+      onLongPress={drag}
+      onToggleComplete={(id, completed) => setTaskCompleted(id, completed)}
       onOpenActions={(t) => setActionsTarget(t)}
     />
   );
@@ -347,7 +374,7 @@ const HomeScreen = ({ route }) => {
               <View
                 style={[
                   styles.segmentedActiveBg,
-                  activeTab === 'tasks' ? styles.segmentLeftActiveBg : styles.segmentRightActiveBg,
+                  activeTab === 'timeline' ? styles.segmentLeftActiveBg : styles.segmentRightActiveBg,
                 ]}
                 pointerEvents="none"
               />
@@ -367,14 +394,14 @@ const HomeScreen = ({ route }) => {
                 </View>
               ) : null}
               <View style={styles.segmentedButtons}>
-                <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('tasks')}>
-                  <Text style={activeTab === 'tasks' ? styles.segmentActiveText : styles.segmentText}>
-                    {getTranslation('tasks', language)}
+                <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('timeline')}>
+                  <Text style={activeTab === 'timeline' ? styles.segmentActiveText : styles.segmentText}>
+                    {getTranslation('timeline', language)}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('habits')}>
-                  <Text style={activeTab === 'habits' ? styles.segmentActiveText : styles.segmentText}>
-                    {getTranslation('habits', language)}
+                <TouchableOpacity style={styles.segmentButton} onPress={() => setActiveTab('flexible')}>
+                  <Text style={activeTab === 'flexible' ? styles.segmentActiveText : styles.segmentText}>
+                    {getTranslation('flexibleTasks', language)}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -388,11 +415,11 @@ const HomeScreen = ({ route }) => {
                 monthOpenListShellStyle,
               ]}
             >
-              {activeTab === 'tasks' ? (
-                sortedTasks.length > 0 ? (
+              {activeTab === 'timeline' ? (
+                sortedTimelineTasks.length > 0 ? (
                   <DayTimeline
                     dateKey={selectedKey}
-                    items={sortedTasks}
+                    items={sortedTimelineTasks}
                     onPressItem={(item) => {
                       if (item.type === 'task') {
                         navigation.navigate('EditTask', { task: item });
@@ -417,30 +444,69 @@ const HomeScreen = ({ route }) => {
                   >
                     <View style={styles.dayEmptyMessageInner}>
                       <Text style={styles.dayEmptyHintTitle}>
-                        {emptyTasksHint?.title ?? ''}
+                        {emptyTimelineHint?.title ?? ''}
                       </Text>
-                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint?.sub ?? ''}</Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTimelineHint?.sub ?? ''}</Text>
                     </View>
                   </View>
                 )
-              ) : sortedHabits.length > 0 ? (
-                <DayTimeline
-                  dateKey={selectedKey}
-                  items={sortedHabits}
-                  onPressItem={(item) => {
-                    if (item.type === 'task') {
-                      navigation.navigate('EditTask', { task: item });
-                    } else {
-                      setEditTarget(item);
+              ) : sortedFlexibleTasks.length > 0 ? (
+                Platform.OS === 'android' ? (
+                  <FlatList
+                    data={sortedFlexibleTasks}
+                    keyExtractor={(item) => String(item.id)}
+                    renderItem={renderFlexibleItem}
+                    style={styles.listExpand}
+                    contentContainerStyle={[
+                      styles.flexibleListContent,
+                      { paddingBottom: scrollBottomPadding + 60 },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    overScrollMode="never"
+                    ListFooterComponent={
+                      <TouchableOpacity
+                        style={styles.resetSortBtn}
+                        onPress={handleResetFlexibleSort}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={styles.resetSortText}>
+                          {getTranslation('resetSort', language)}
+                        </Text>
+                      </TouchableOpacity>
                     }
-                  }}
-                  onLongPressItem={(item) => setActionsTarget(item)}
-                  onToggleComplete={toggleHabitComplete}
-                  onSetCompleted={setHabitCompleted}
-                  onUpdateItem={updateHabit}
-                  onRescheduleItem={rescheduleHabit}
-                  bottomPadding={timelineScrollBottomPad}
-                />
+                  />
+                ) : (
+                  <DraggableFlatList
+                    data={sortedFlexibleTasks}
+                    keyExtractor={(item) => String(item.id)}
+                    renderItem={renderFlexibleDragItem}
+                    onDragEnd={({ data }) => {
+                      const ids = data.map((t) => String(t.id));
+                      setFlexibleOrderByDate((prev) => ({ ...prev, [selectedKey]: ids }));
+                      FlexibleTaskOrderStorage.save(selectedKey, ids);
+                    }}
+                    removeClippedSubviews={false}
+                    initialNumToRender={12}
+                    style={styles.listExpand}
+                    contentContainerStyle={[
+                      styles.flexibleListContent,
+                      { paddingBottom: scrollBottomPadding + 60 },
+                    ]}
+                    showsVerticalScrollIndicator={false}
+                    ListFooterComponent={
+                      <TouchableOpacity
+                        style={styles.resetSortBtn}
+                        onPress={handleResetFlexibleSort}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={styles.resetSortText}>
+                          {getTranslation('resetSort', language)}
+                        </Text>
+                      </TouchableOpacity>
+                    }
+                  />
+                )
               ) : (
                 <View
                   style={[
@@ -451,17 +517,17 @@ const HomeScreen = ({ route }) => {
                 >
                   <View style={styles.dayEmptyMessageInner}>
                     <Text style={styles.dayEmptyHintTitle}>
-                      {emptyHabitsHint?.title ?? ''}
+                      {emptyFlexibleHint?.title ?? ''}
                     </Text>
-                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint?.sub ?? ''}</Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyFlexibleHint?.sub ?? ''}</Text>
                   </View>
                 </View>
               )}
             </View>
-          ) : activeTab === 'tasks' ? (
+          ) : activeTab === 'timeline' ? (
             Platform.OS === 'android' ? (
               <FlatList
-                data={sortedTasks}
+                data={sortedTimelineTasks}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={renderItem}
                 style={[styles.listExpand, monthOpenListShellStyle]}
@@ -480,16 +546,16 @@ const HomeScreen = ({ route }) => {
                   <View style={styles.tasksPlaceholder}>
                     <View style={styles.monthEmptyMessageInner}>
                       <Text style={styles.dayEmptyHintTitle}>
-                        {emptyTasksHint?.title ?? ''}
+                        {emptyTimelineHint?.title ?? ''}
                       </Text>
-                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint?.sub ?? ''}</Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTimelineHint?.sub ?? ''}</Text>
                     </View>
                   </View>
                 }
               />
             ) : (
               <DraggableFlatList
-                data={sortedTasks}
+                data={sortedTimelineTasks}
                 keyExtractor={(item) => String(item.id)}
                 renderItem={renderDragItem}
                 onDragEnd={({ data }) => {
@@ -513,38 +579,99 @@ const HomeScreen = ({ route }) => {
                   <View style={styles.tasksPlaceholder}>
                     <View style={styles.monthEmptyMessageInner}>
                       <Text style={styles.dayEmptyHintTitle}>
-                        {emptyTasksHint?.title ?? ''}
+                        {emptyTimelineHint?.title ?? ''}
                       </Text>
-                      <Text style={styles.dayEmptyHintSub}>{emptyTasksHint?.sub ?? ''}</Text>
+                      <Text style={styles.dayEmptyHintSub}>{emptyTimelineHint?.sub ?? ''}</Text>
                     </View>
                   </View>
                 }
               />
             )
-          ) : (
+          ) : Platform.OS === 'android' ? (
             <FlatList
-              data={sortedHabits}
+              data={sortedFlexibleTasks}
               keyExtractor={(item) => String(item.id)}
-              renderItem={renderItem}
+              renderItem={renderFlexibleItem}
+              removeClippedSubviews={false}
+              initialNumToRender={12}
+              windowSize={7}
               style={[styles.listExpand, monthOpenListShellStyle]}
               contentContainerStyle={[
-                styles.listContent,
+                styles.flexibleListContent,
                 listIsEmptyForActiveTab &&
                   (isCalendarStripExpanded
                     ? styles.listContentEmptyUnderOpenMonth
                     : styles.listContentEmptyCentered),
-                { paddingBottom: scrollBottomPadding },
+                { paddingBottom: scrollBottomPadding + 60 },
               ]}
               showsVerticalScrollIndicator={false}
-              bounces={false}
-              overScrollMode="never"
+              ListFooterComponent={
+                sortedFlexibleTasks.length > 0 ? (
+                  <TouchableOpacity
+                    style={styles.resetSortBtn}
+                    onPress={handleResetFlexibleSort}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.resetSortText}>
+                      {getTranslation('resetSort', language)}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null
+              }
               ListEmptyComponent={
                 <View style={styles.tasksPlaceholder}>
                   <View style={styles.monthEmptyMessageInner}>
                     <Text style={styles.dayEmptyHintTitle}>
-                      {emptyHabitsHint?.title ?? ''}
+                      {emptyFlexibleHint?.title ?? ''}
                     </Text>
-                    <Text style={styles.dayEmptyHintSub}>{emptyHabitsHint?.sub ?? ''}</Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyFlexibleHint?.sub ?? ''}</Text>
+                  </View>
+                </View>
+              }
+            />
+          ) : (
+            <DraggableFlatList
+              data={sortedFlexibleTasks}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={renderFlexibleDragItem}
+              onDragEnd={({ data }) => {
+                const ids = data.map((t) => String(t.id));
+                setFlexibleOrderByDate((prev) => ({ ...prev, [selectedKey]: ids }));
+                FlexibleTaskOrderStorage.save(selectedKey, ids);
+              }}
+              removeClippedSubviews={false}
+              initialNumToRender={12}
+              windowSize={7}
+              style={[styles.listExpand, monthOpenListShellStyle]}
+              contentContainerStyle={[
+                styles.flexibleListContent,
+                listIsEmptyForActiveTab &&
+                  (isCalendarStripExpanded
+                    ? styles.listContentEmptyUnderOpenMonth
+                    : styles.listContentEmptyCentered),
+                { paddingBottom: scrollBottomPadding + 60 },
+              ]}
+              showsVerticalScrollIndicator={false}
+              ListFooterComponent={
+                sortedFlexibleTasks.length > 0 ? (
+                  <TouchableOpacity
+                    style={styles.resetSortBtn}
+                    onPress={handleResetFlexibleSort}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.resetSortText}>
+                      {getTranslation('resetSort', language)}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+              ListEmptyComponent={
+                <View style={styles.tasksPlaceholder}>
+                  <View style={styles.monthEmptyMessageInner}>
+                    <Text style={styles.dayEmptyHintTitle}>
+                      {emptyFlexibleHint?.title ?? ''}
+                    </Text>
+                    <Text style={styles.dayEmptyHintSub}>{emptyFlexibleHint?.sub ?? ''}</Text>
                   </View>
                 </View>
               }
@@ -584,7 +711,7 @@ const HomeScreen = ({ route }) => {
                 <Text style={styles.actionsBtnText}>Редагувати</Text>
               </TouchableOpacity>
               {calendarViewMode === 'day' &&
-              (activeTab === 'tasks' ? sortedTasks.length > 1 : sortedHabits.length > 1) ? (
+              (activeTab === 'timeline' ? sortedTimelineTasks.length > 1 : sortedFlexibleTasks.length > 1) ? (
                 <>
                   <TouchableOpacity
                     style={styles.actionsBtn}
@@ -623,11 +750,7 @@ const HomeScreen = ({ route }) => {
         onCancel={() => setEditTarget(null)}
         onSave={(patch) => {
           if (!editTarget) return;
-          if (editTarget.type === 'habit') {
-            updateHabit(editTarget.id, patch);
-          } else {
-            updateTask(editTarget.id, patch);
-          }
+          updateTask(editTarget.id, patch);
           setEditTarget(null);
         }}
         onRequestDelete={() => {
@@ -645,12 +768,7 @@ const HomeScreen = ({ route }) => {
         task={deleteTarget}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={(id) => {
-          const t = deleteTarget;
-          if (t?.type === 'habit') {
-            deleteHabit(id);
-          } else {
-            deleteTask(id);
-          }
+          deleteTask(id);
           setDeleteTarget(null);
         }}
       />
@@ -891,6 +1009,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingTop: SPACING.lg,
     backgroundColor: '#FFFFFF',
+  },
+  flexibleListContent: {
+    backgroundColor: '#FFFFFF',
+  },
+  resetSortBtn: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panelLight,
+  },
+  resetSortText: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: 'Montserrat-Medium',
+    color: COLORS.textSecondary,
   },
   listContentEmptyCentered: {
     flexGrow: 1,

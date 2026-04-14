@@ -28,6 +28,7 @@ export default function EditTaskModal({
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [isFlexible, setIsFlexible] = useState(false);
   const [startHourIdx, setStartHourIdx] = useState(9);
   const [startMinuteIdx, setStartMinuteIdx] = useState(0);
   const [endHourIdx, setEndHourIdx] = useState(10);
@@ -37,8 +38,10 @@ export default function EditTaskModal({
     if (!task) return;
     setTitle(task.title != null ? String(task.title) : '');
     setDescription(task.description != null ? String(task.description) : '');
-    const s = parseHHMM(task.startTime != null ? String(task.startTime) : '');
-    const e = parseHHMM(task.endTime != null ? String(task.endTime) : '');
+    const taskIsFlexible = task.startTime === null;
+    setIsFlexible(taskIsFlexible);
+    const s = parseHHMM(!taskIsFlexible && task.startTime != null ? String(task.startTime) : '09:00');
+    const e = parseHHMM(task.endTime != null ? String(task.endTime) : '10:00');
     setStartHourIdx(s.h);
     setStartMinuteIdx(s.m);
     setEndHourIdx(e.h);
@@ -84,62 +87,111 @@ export default function EditTaskModal({
             multiline
           />
 
-          <Text style={styles.label}>Час</Text>
-          <View style={styles.timeRow}>
-            <View style={styles.timeCol}>
-              <Text style={styles.timeCaption}>Початок</Text>
-              <View style={styles.wheelsRow}>
-                <WheelPicker
-                  data={HOURS}
-                  selectedIndex={startHourIdx}
-                  onChange={(idx) => setStartHourIdx(idx)}
-                  width={90}
-                  itemHeight={44}
-                  visibleItems={5}
-                  textStyle={styles.wheelItem}
-                  selectedTextStyle={styles.wheelSelectedItem}
-                />
-                <Text style={styles.colon}>:</Text>
-                <WheelPicker
-                  data={MINUTES}
-                  selectedIndex={startMinuteIdx}
-                  onChange={(idx) => setStartMinuteIdx(idx)}
-                  width={90}
-                  itemHeight={44}
-                  visibleItems={5}
-                  textStyle={styles.wheelItem}
-                  selectedTextStyle={styles.wheelSelectedItem}
-                />
-              </View>
-            </View>
-
-            <View style={styles.timeCol}>
-              <Text style={styles.timeCaption}>Кінець</Text>
-              <View style={styles.wheelsRow}>
-                <WheelPicker
-                  data={HOURS}
-                  selectedIndex={endHourIdx}
-                  onChange={(idx) => setEndHourIdx(idx)}
-                  width={90}
-                  itemHeight={44}
-                  visibleItems={5}
-                  textStyle={styles.wheelItem}
-                  selectedTextStyle={styles.wheelSelectedItem}
-                />
-                <Text style={styles.colon}>:</Text>
-                <WheelPicker
-                  data={MINUTES}
-                  selectedIndex={endMinuteIdx}
-                  onChange={(idx) => setEndMinuteIdx(idx)}
-                  width={90}
-                  itemHeight={44}
-                  visibleItems={5}
-                  textStyle={styles.wheelItem}
-                  selectedTextStyle={styles.wheelSelectedItem}
-                />
-              </View>
-            </View>
+          <View style={styles.flexibleToggleRow}>
+            <Text style={styles.label}>Гнучкий час</Text>
+            <TouchableOpacity
+              style={[styles.flexibleToggleBtn, isFlexible && styles.flexibleToggleBtnActive]}
+              onPress={() => setIsFlexible((v) => !v)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.flexibleToggleText, isFlexible && styles.flexibleToggleTextActive]}>
+                {isFlexible ? 'Так' : 'Ні'}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {isFlexible ? (
+            <>
+              <Text style={styles.label}>Дедлайн (кінець)</Text>
+              <View style={styles.timeRow}>
+                <View style={styles.timeColSingle}>
+                  <Text style={styles.timeCaption}>Виконати до</Text>
+                  <View style={styles.wheelsRow}>
+                    <WheelPicker
+                      data={HOURS}
+                      selectedIndex={endHourIdx}
+                      onChange={(idx) => setEndHourIdx(idx)}
+                      width={90}
+                      itemHeight={44}
+                      visibleItems={5}
+                      textStyle={styles.wheelItem}
+                      selectedTextStyle={styles.wheelSelectedItem}
+                    />
+                    <Text style={styles.colon}>:</Text>
+                    <WheelPicker
+                      data={MINUTES}
+                      selectedIndex={endMinuteIdx}
+                      onChange={(idx) => setEndMinuteIdx(idx)}
+                      width={90}
+                      itemHeight={44}
+                      visibleItems={5}
+                      textStyle={styles.wheelItem}
+                      selectedTextStyle={styles.wheelSelectedItem}
+                    />
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.label}>Час</Text>
+              <View style={styles.timeRow}>
+                <View style={styles.timeCol}>
+                  <Text style={styles.timeCaption}>Початок</Text>
+                  <View style={styles.wheelsRow}>
+                    <WheelPicker
+                      data={HOURS}
+                      selectedIndex={startHourIdx}
+                      onChange={(idx) => setStartHourIdx(idx)}
+                      width={90}
+                      itemHeight={44}
+                      visibleItems={5}
+                      textStyle={styles.wheelItem}
+                      selectedTextStyle={styles.wheelSelectedItem}
+                    />
+                    <Text style={styles.colon}>:</Text>
+                    <WheelPicker
+                      data={MINUTES}
+                      selectedIndex={startMinuteIdx}
+                      onChange={(idx) => setStartMinuteIdx(idx)}
+                      width={90}
+                      itemHeight={44}
+                      visibleItems={5}
+                      textStyle={styles.wheelItem}
+                      selectedTextStyle={styles.wheelSelectedItem}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.timeCol}>
+                  <Text style={styles.timeCaption}>Кінець</Text>
+                  <View style={styles.wheelsRow}>
+                    <WheelPicker
+                      data={HOURS}
+                      selectedIndex={endHourIdx}
+                      onChange={(idx) => setEndHourIdx(idx)}
+                      width={90}
+                      itemHeight={44}
+                      visibleItems={5}
+                      textStyle={styles.wheelItem}
+                      selectedTextStyle={styles.wheelSelectedItem}
+                    />
+                    <Text style={styles.colon}>:</Text>
+                    <WheelPicker
+                      data={MINUTES}
+                      selectedIndex={endMinuteIdx}
+                      onChange={(idx) => setEndMinuteIdx(idx)}
+                      width={90}
+                      itemHeight={44}
+                      visibleItems={5}
+                      textStyle={styles.wheelItem}
+                      selectedTextStyle={styles.wheelSelectedItem}
+                    />
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
 
           {onRequestReschedule || onRequestDelete ? (
             <View style={styles.extraActions}>
@@ -166,8 +218,9 @@ export default function EditTaskModal({
                 onSave?.({
                   title: title.trim(),
                   description: description.trim(),
-                  startTime,
+                  startTime: isFlexible ? null : startTime,
                   endTime,
+                  isInbox: false,
                 })
               }
             >
@@ -221,8 +274,36 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'android' ? undefined : FONTS.regular,
   },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
+  flexibleToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  flexibleToggleBtn: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panelLight,
+  },
+  flexibleToggleBtnActive: {
+    backgroundColor: COLORS.accentBrown,
+    borderColor: COLORS.accentBrown,
+  },
+  flexibleToggleText: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+  },
+  flexibleToggleTextActive: {
+    color: '#FFF',
+  },
   timeRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.xs },
   timeCol: { flex: 1 },
+  timeColSingle: { flex: 1, alignItems: 'center' },
   timeCaption: {
     fontSize: 12,
     color: COLORS.textSecondary,
