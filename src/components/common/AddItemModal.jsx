@@ -21,6 +21,7 @@ try {
 }
 import AudioRecorderPlayer from 'react-native-nitro-sound';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../styles/theme';
 import WheelPicker from '../calendar/WheelPicker';
 import { useTasks } from '../../context/TasksContext';
@@ -39,6 +40,7 @@ import {
 } from '../../utils/calendarDay';
 
 const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
+  const insets = useSafeAreaInsets();
   const { tasks, habits, goals, addTask, addHabit, addGoal } = useTasks();
   const { language } = useLanguage();
   const { selectedDate, todayCalendar } = useSelectedDate();
@@ -980,7 +982,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
           </View>
 
           {step === 'type' ? (
-            <View key={selectedDateKey ?? 'day'} style={styles.typeSelection}>
+            <View key={selectedDateKey ?? 'day'} style={[styles.typeSelection, { paddingBottom: SPACING.md + insets.bottom }]}>
               <View style={styles.cardsRow}>
                 <Animated.View
                   style={[
@@ -1143,11 +1145,11 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                 },
               ]}
             >
-              <ScrollView 
-                style={styles.formContainer} 
+              <ScrollView
+                style={styles.formContainer}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.scrollContentContainer}
+                contentContainerStyle={[styles.scrollContentContainer, { paddingBottom: SPACING.xl + insets.bottom }]}
               >
               <View style={styles.formGroup}>
                 <View style={styles.labelRow}>

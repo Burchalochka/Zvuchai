@@ -305,20 +305,14 @@ const InboxScreen = () => {
               Без дедлайну
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.segmentButton}
-            onPress={() => handleMainTabChange(MAIN_TABS.AI_UNSURE)}
+          <View
+            style={[styles.segmentButton, styles.segmentButtonDisabled]}
+            pointerEvents="none"
           >
-            <Text
-              style={
-                activeMainTab === MAIN_TABS.AI_UNSURE
-                  ? styles.segmentActiveText
-                  : styles.segmentText
-              }
-            >
+            <Text style={styles.segmentTextDisabled}>
               ШІ не впевнений
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -708,6 +702,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontFamily: 'Montserrat-SemiBold',
+  },
+  segmentButtonDisabled: {
+    opacity: 0.35,
+  },
+  segmentTextDisabled: {
+    fontSize: FONTS.sizes.md,
+    color: '#514134',
+    fontWeight: '500',
+    fontFamily: 'Montserrat-Medium',
   },
 
   subTabsContainer: {

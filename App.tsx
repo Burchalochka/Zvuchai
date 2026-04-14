@@ -79,7 +79,7 @@ const hiddenRoutes = [
         {/* ПЕРЕВІРКА: Показуємо кнопку, ТІЛЬКИ ЯКЩО поточного екрана немає в списку hiddenRoutes */}
         {!hiddenRoutes.includes(currentRouteName) && (
           <View
-            style={[styles.fabWrapper, { bottom: 80 + insets.bottom - 4 }]}
+            style={[styles.fabWrapper, { bottom: 80 + insets.bottom + 10 }]}
             pointerEvents="box-none"
           >
             <View style={styles.fabPanel}>

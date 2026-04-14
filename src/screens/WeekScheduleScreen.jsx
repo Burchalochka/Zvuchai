@@ -1118,37 +1118,6 @@ export default function WeekScheduleScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={calMenuStyles.item}
-              onPress={() => {
-                setCalendarMenuVisible(false);
-                navigation.navigate('Home', { calendarViewMode: 'month' });
-              }}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={require('../assets/icons/calendar 3.png')}
-                style={calMenuStyles.icon}
-                resizeMode="contain"
-              />
-              <Text style={calMenuStyles.text}>Місяць</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={calMenuStyles.item}
-              onPress={() => {
-                setCalendarMenuVisible(false);
-                navigation.navigate('Home', { calendarViewMode: 'threeDays' });
-              }}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={require('../assets/icons/Vector45.png')}
-                style={calMenuStyles.icon}
-                resizeMode="contain"
-              />
-              <Text style={calMenuStyles.text}>3 дні</Text>
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
