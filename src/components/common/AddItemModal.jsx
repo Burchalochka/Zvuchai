@@ -84,6 +84,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
   const [currentProgress, setCurrentProgress] = useState('');
   const [deadline, setDeadline] = useState('');
   const [noDeadline, setNoDeadline] = useState(false);
+  const [noSpecificTime, setNoSpecificTime] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [activeInput, setActiveInput] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -544,8 +545,8 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
       title: title.trim(),
       description: description.trim(),
       date: noDeadline ? null : taskDate,
-      startTime: noDeadline ? null : start,
-      endTime: noDeadline ? null : end,
+      startTime: (noDeadline || noSpecificTime) ? null : start,
+      endTime: (noDeadline || noSpecificTime) ? null : end,
       estimatedDuration: duration ?? 0,
       themeColor: selectedColor,
       titleAudio,
@@ -632,6 +633,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setCurrentProgress('');
     setDeadline('');
     setNoDeadline(false);
+    setNoSpecificTime(false);
     setTaskDate(resolveCalendarListDateKey(selectedDate, todayCalendar));
     setIsRecording(false);
     setActiveInput(null);
@@ -660,7 +662,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     const formattedStartTime = formatTimeInput(startTime);
     const formattedEndTime = formatTimeInput(endTime);
 
-    if (!noDeadline) {
+    if (!noDeadline && !noSpecificTime) {
       const startValid = validateTime(formattedStartTime);
       const endValid = validateTime(formattedEndTime);
       const duration =
@@ -776,6 +778,7 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
     setCurrentProgress('');
     setDeadline('');
     setNoDeadline(false);
+    setNoSpecificTime(false);
     setTaskDate(resolveCalendarListDateKey(selectedDate, todayCalendar));
     setIsRecording(false);
     setActiveInput(null);
@@ -1234,7 +1237,10 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
                 <TouchableOpacity
                   style={styles.noDeadlineRow}
                   activeOpacity={0.8}
-                  onPress={() => setNoDeadline((v) => !v)}
+                  onPress={() => {
+                    setNoDeadline((v) => !v);
+                    setNoSpecificTime(false);
+                  }}
                 >
                   <View style={styles.noDeadlineLeft}>
                     <Icon
@@ -1251,6 +1257,28 @@ const AddItemModal = ({ visible, onClose, onAddTask, onAddHabit }) => {
               </View>
 
               {!noDeadline && (
+                <View style={styles.formGroup}>
+                  <TouchableOpacity
+                    style={styles.noDeadlineRow}
+                    activeOpacity={0.8}
+                    onPress={() => setNoSpecificTime((v) => !v)}
+                  >
+                    <View style={styles.noDeadlineLeft}>
+                      <Icon
+                        name={noSpecificTime ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={COLORS.primaryDark}
+                      />
+                      <Text style={styles.noDeadlineText}>{getTranslation('noSpecificTimeLabel', language)}</Text>
+                    </View>
+                    <Text style={styles.noDeadlineHint}>
+                      {noSpecificTime ? getTranslation('noSpecificTimeHintOn', language) : getTranslation('noSpecificTimeHintOff', language)}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {!noDeadline && !noSpecificTime && (
                 <View style={styles.timeRow}>
                   <View style={styles.formGroup}>
                     <Text style={styles.label}>{getTranslation('start', language)}</Text>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { COLORS, FONTS, SPACING } from '../../styles/theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { getTranslation } from '../../utils/translations';
 
 export default function FlexibleTaskItem({
   task,
@@ -9,8 +11,11 @@ export default function FlexibleTaskItem({
   onToggleComplete,
   onOpenActions,
 }) {
+  const { language } = useLanguage();
   const isCompleted = task?.status === 'completed';
-  const dueLabel = task?.endTime ? `До ${task.endTime}` : null;
+  const dueLabel = task?.endTime
+    ? `До ${task.endTime}`
+    : getTranslation('anytime', language);
 
   return (
     <View style={[styles.container, isCompleted && styles.containerCompleted]}>
@@ -41,9 +46,7 @@ export default function FlexibleTaskItem({
           {task?.title ?? ''}
         </Text>
 
-        {dueLabel ? (
-          <Text style={styles.due}>{dueLabel}</Text>
-        ) : null}
+        <Text style={styles.due}>{dueLabel}</Text>
 
         <TouchableOpacity
           style={styles.menuBtn}
