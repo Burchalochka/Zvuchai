@@ -4,6 +4,15 @@ import { COLORS, FONTS, SPACING } from '../../styles/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { getTranslation } from '../../utils/translations';
 
+function formatDuration(minutes) {
+  if (!minutes || minutes <= 0) return null;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h} год ${m} хв`;
+  if (h > 0) return `${h} год`;
+  return `${m} хв`;
+}
+
 export default function FlexibleTaskItem({
   task,
   onPress,
@@ -16,6 +25,7 @@ export default function FlexibleTaskItem({
   const dueLabel = task?.endTime
     ? `До ${task.endTime}`
     : getTranslation('anytime', language);
+  const durationLabel = formatDuration(task?.estimatedDuration);
 
   return (
     <View style={[styles.container, isCompleted && styles.containerCompleted]}>
@@ -46,6 +56,9 @@ export default function FlexibleTaskItem({
           {task?.title ?? ''}
         </Text>
 
+        {durationLabel ? (
+          <Text style={styles.duration}>{durationLabel}</Text>
+        ) : null}
         <Text style={styles.due}>{dueLabel}</Text>
 
         <TouchableOpacity
@@ -108,6 +121,13 @@ const styles = StyleSheet.create({
   titleCompleted: {
     textDecorationLine: 'line-through',
     color: COLORS.textSecondary,
+  },
+  duration: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+    marginRight: SPACING.xs,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
   },
   due: {
     fontSize: FONTS.sizes.sm,

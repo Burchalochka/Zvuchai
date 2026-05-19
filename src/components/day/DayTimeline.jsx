@@ -13,7 +13,7 @@ import {
   ScrollView as GHScrollView,
   Pressable as GHPressable,
 } from 'react-native-gesture-handler';
-import Svg, { Line, Path } from 'react-native-svg';
+import Svg, { Line, Path, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { COLORS, FONTS, RADIUS, SHADOWS, SPACING } from '../../styles/theme';
 import {
   TIMELINE_HORIZONTAL_RHYTHM_PX,
@@ -528,6 +528,7 @@ const LIVE_HOUR_PILL_MIN_GAP = 10;
 export default function DayTimeline({
   dateKey,
   items,
+  deadlineItems = [],
   onPressItem,
   onLongPressItem: _onLongPressItem,
   onToggleComplete,
@@ -1770,6 +1771,101 @@ export default function DayTimeline({
               );
             })}
           </View>
+
+          {deadlineItems.map((task) => {
+            const deadlineMin = parseHHMM(task.endTime);
+            if (deadlineMin === null) return null;
+            const lineY = TOP_INSET + (deadlineMin - clean.startMin) * PX_PER_MIN;
+            const clampedTop = Math.max(0, lineY - DEADLINE_MARKER_H);
+            const gradH = lineY - clampedTop;
+            const stripColor = resolveTaskStripColor(task?.themeColor);
+            const gradId = `dlg-${task.id}`;
+            const isDeadlineCompleted = task?.status === 'completed';
+            const deadlineDurationLabel = formatDurationUk(task?.estimatedDuration);
+
+            return (
+              <View
+                key={`deadline-${task.id}`}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: TIMELINE_HORIZONTAL_RHYTHM_PX,
+                  top: clampedTop,
+                  height: gradH + DEADLINE_LINE_H,
+                  zIndex: 3,
+                }}
+                pointerEvents="box-none"
+              >
+                <Svg
+                  width="100%"
+                  height={gradH}
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
+                  pointerEvents="none"
+                >
+                  <Defs>
+                    <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0" stopColor={stripColor} stopOpacity="0" />
+                      <Stop offset="1" stopColor={stripColor} stopOpacity="0.38" />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect x="0" y="0" width="100%" height={gradH} fill={`url(#${gradId})`} />
+                </Svg>
+                <View
+                  style={[styles.deadlineLine, { backgroundColor: stripColor }]}
+                  pointerEvents="none"
+                />
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    bottom: DEADLINE_LINE_H,
+                    left: TASK_CARD_TEXT_INSET_FROM_CARD_LEFT_PX,
+                    right: 40,
+                    height: DEADLINE_TOUCH_H - DEADLINE_LINE_H,
+                    justifyContent: 'flex-end',
+                    paddingBottom: 6,
+                  }}
+                  activeOpacity={0.8}
+                  onPress={() => onPressItem?.(task)}
+                >
+                  <Text
+                    style={[styles.deadlineTitle, isDeadlineCompleted && styles.deadlineTitleCompleted]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {task.title || ''}
+                  </Text>
+                  <Text style={styles.deadlineSubtitle} numberOfLines={1}>
+                    {`До ${task.endTime}`}
+                  </Text>
+                </TouchableOpacity>
+                {deadlineDurationLabel ? (
+                  <View style={styles.deadlineDurationWrap} pointerEvents="none">
+                    <Text style={styles.deadlineDurationLabel} numberOfLines={1}>
+                      {deadlineDurationLabel}
+                    </Text>
+                  </View>
+                ) : null}
+                <TouchableOpacity
+                  style={styles.deadlineCheckBtn}
+                  onPress={() => {
+                    if (typeof onSetCompleted === 'function') {
+                      onSetCompleted(task.id, !isDeadlineCompleted);
+                    } else {
+                      onToggleComplete?.(task.id);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Image
+                    source={isDeadlineCompleted ? DONE_ICON : EMPTY_ICON}
+                    style={styles.checkIcon}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
 
         {nowHorizontalDashGeom ? (
@@ -1816,6 +1912,9 @@ const CARD_VERTICAL_GAP = TASK_TIMELINE_INSET;
 const CARD_SLOT_MIN_HEIGHT = 44;
 
 const COMPACT_LAYOUT_MAX_NATURAL_H = 56;
+const DEADLINE_MARKER_H = 64;
+const DEADLINE_LINE_H = 2;
+const DEADLINE_TOUCH_H = 42;
 const CAROUSEL_CARD_GAP = TASK_TIMELINE_INSET;
 
 const TIME_LABEL_SHIFT_Y = -12;
@@ -2313,6 +2412,51 @@ const styles = StyleSheet.create({
   checkIcon: {
     width: 24,
     height: 24,
+  },
+  deadlineTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.medium,
+    lineHeight: 16,
+    color: '#1A1A1A',
+  },
+  deadlineTitleCompleted: {
+    textDecorationLine: 'line-through',
+    opacity: 0.55,
+  },
+  deadlineSubtitle: {
+    fontSize: 10,
+    fontFamily: FONTS.regular,
+    lineHeight: 13,
+    color: '#6B6B6B',
+  },
+  deadlineLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: DEADLINE_LINE_H,
+  },
+  deadlineCheckBtn: {
+    position: 'absolute',
+    right: TASK_CHECK_BTN_RIGHT_PX,
+    bottom: 8,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deadlineDurationWrap: {
+    position: 'absolute',
+    right: TASK_CHECK_BTN_RIGHT_PX + 28 + 6,
+    bottom: 8,
+    height: 28,
+    justifyContent: 'center',
+  },
+  deadlineDurationLabel: {
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: TIMELINE_RAIL_STROKE,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : {}),
   },
 });
 

@@ -822,7 +822,7 @@ export function getSeedTasks(): Task[] {
       themeColor: '#FCFFC6',
       priority: 'low',
       difficulty: 'easy',
-      estimatedDuration: 30,
+      estimatedDuration: 120,
       dueDate: null,
       deadline: null,
       tags: ['навчання'],

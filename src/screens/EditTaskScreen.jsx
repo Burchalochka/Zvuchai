@@ -44,6 +44,8 @@ const EditTaskScreen = () => {
   const [startTime, setStartTime] = useState(null); // string "HH:MM" or null
   const [endTime, setEndTime] = useState(null);     // string "HH:MM" or null
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [durationHours, setDurationHours] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState('');
 
   // Initialize form with task data
   useEffect(() => {
@@ -77,6 +79,10 @@ const EditTaskScreen = () => {
         if (task.endTime) {
           setEndTime(normalizeTime(task.endTime));
         }
+      }
+      if (task.estimatedDuration && task.estimatedDuration > 0) {
+        setDurationHours(String(Math.floor(task.estimatedDuration / 60)));
+        setDurationMinutes(String(task.estimatedDuration % 60));
       }
     }
   }, [task]);
@@ -149,6 +155,13 @@ const EditTaskScreen = () => {
     return true;
   };
 
+  const computedEstimatedDuration = (() => {
+    const h = parseInt(durationHours, 10);
+    const m = parseInt(durationMinutes, 10);
+    const total = (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+    return total > 0 ? total : null;
+  })();
+
   // Format updated task object
   const formatUpdatedTask = () => {
     const baseTask = {
@@ -156,6 +169,7 @@ const EditTaskScreen = () => {
       title: title.trim(),
       description: description.trim(),
       tags: tag.trim() ? [tag.trim()] : [],
+      estimatedDuration: computedEstimatedDuration,
       updatedAt: new Date().toISOString(),
     };
 
@@ -407,6 +421,48 @@ const EditTaskScreen = () => {
           </View>
         )}
 
+        {/* Estimated Duration */}
+        <View style={styles.inputSection}>
+          <Text style={styles.label}>Тривалість (необов'язково)</Text>
+          <View style={styles.durationRow}>
+            <View style={styles.durationField}>
+              <TextInput
+                style={styles.durationInput}
+                value={durationHours}
+                onChangeText={(v) => setDurationHours(v.replace(/[^0-9]/g, ''))}
+                placeholder="0"
+                placeholderTextColor={COLORS.textSecondary}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <Text style={styles.durationUnit}>год</Text>
+            </View>
+            <View style={styles.durationField}>
+              <TextInput
+                style={styles.durationInput}
+                value={durationMinutes}
+                onChangeText={(v) => setDurationMinutes(v.replace(/[^0-9]/g, ''))}
+                placeholder="0"
+                placeholderTextColor={COLORS.textSecondary}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <Text style={styles.durationUnit}>хв</Text>
+            </View>
+            {computedEstimatedDuration ? (
+              <Text style={styles.durationPreview}>
+                {(() => {
+                  const h = Math.floor(computedEstimatedDuration / 60);
+                  const m = computedEstimatedDuration % 60;
+                  if (h > 0 && m > 0) return `${h} год ${m} хв`;
+                  if (h > 0) return `${h} год`;
+                  return `${m} хв`;
+                })()}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
         {/* Bottom Spacer */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -581,6 +637,41 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontFamily: FONTS.medium,
     color: COLORS.textSecondary,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  durationField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.panelLight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  durationInput: {
+    fontSize: FONTS.sizes.md,
+    fontFamily: FONTS.regular,
+    color: COLORS.text,
+    minWidth: 32,
+    textAlign: 'center',
+    padding: 0,
+  },
+  durationUnit: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+  },
+  durationPreview: {
+    fontSize: FONTS.sizes.sm,
+    fontFamily: FONTS.medium,
+    color: COLORS.textSecondary,
+    marginLeft: SPACING.xs,
   },
   bottomSpacer: {
     height: SPACING.xxl,

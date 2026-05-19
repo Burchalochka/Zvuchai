@@ -122,6 +122,7 @@ const HomeScreen = ({ route }) => {
 
   const timelineTasksForDay = tasksForDay.filter((t) => t.startTime !== null);
   const flexibleTasksForDay = tasksForDay.filter((t) => t.startTime === null && !t.isInbox);
+  const flexibleDeadlineItems = flexibleTasksForDay.filter((t) => t.endTime !== null);
 
   const sortedTimelineTasks = [...timelineTasksForDay].sort((a, b) => {
     const aIdx = Number.isFinite(a?.sortIndex) ? a.sortIndex : null;
@@ -420,6 +421,7 @@ const HomeScreen = ({ route }) => {
                   <DayTimeline
                     dateKey={selectedKey}
                     items={sortedTimelineTasks}
+                    deadlineItems={flexibleDeadlineItems}
                     onPressItem={(item) => {
                       if (item.type === 'task') {
                         navigation.navigate('EditTask', { task: item });
